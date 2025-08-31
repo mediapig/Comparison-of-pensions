@@ -42,18 +42,14 @@ class HongKongPensionCalculator(BasePensionCalculator):
             person, salary_profile, economic_factors
         )
 
-        # 计算强积金账户余额
-        account_balance = self._calculate_account_balance(
-            contribution_history, economic_factors
-        )
+        # 计算MPF退休金（使用新的准确逻辑）
+        mpf_result = self._calculate_mpf_retirement(contribution_history, economic_factors)
 
-        # 计算月退休金（假设按年金方式提取）
-        monthly_pension = self._calculate_monthly_pension(
-            account_balance, retirement_age, economic_factors
-        )
+        # 计算月退休金
+        monthly_pension = mpf_result['MPF_monthly_pension']
 
         # 计算总缴费
-        total_contribution = sum(record['personal_contribution'] for record in contribution_history)
+        total_contribution = mpf_result['total_contrib']
 
         # 计算总收益（假设活到85岁）
         life_expectancy = 85
@@ -76,7 +72,10 @@ class HongKongPensionCalculator(BasePensionCalculator):
             roi=roi,
             original_currency="HKD",
             details={
-                'account_balance': account_balance,
+                'mpf_balance': mpf_result['MPF_balance'],
+                'employee_contrib': mpf_result['employee_contrib'],
+                'employer_contrib': mpf_result['employer_contrib'],
+                'total_contrib': mpf_result['total_contrib'],
                 'work_years': work_years,
                 'retirement_age': retirement_age
             }
@@ -143,6 +142,64 @@ class HongKongPensionCalculator(BasePensionCalculator):
             total_balance += future_value
 
         return total_balance
+
+    def _calculate_mpf_retirement(self,
+                                contribution_history: List[Dict[str, Any]],
+                                economic_factors: EconomicFactors) -> Dict[str, float]:
+        """计算香港MPF退休金（按照用户提供的准确逻辑）"""
+        if not contribution_history:
+            return {'MPF_balance': 0, 'MPF_monthly_pension': 0}
+
+        # MPF参数
+        return_rate = 0.05      # 投资回报率 5%
+        retire_return = 0.03    # 退休期实际收益率 3%
+        retire_years = 20       # 退休领取年数（按用户要求）
+        min_income = 7100 * 12  # 入息下限 (年化)
+        max_income = 30000 * 12 # 入息上限 (年化)
+        er_rate = 0.05          # 雇主供款率 5%
+        emp_rate = 0.05         # 员工供款率 5%
+
+        # 初始化
+        balances = 0.0
+        total_emp, total_er = 0.0, 0.0
+
+                # 逐年累积
+        for record in contribution_history:
+            # 注意：record['salary'] 是月薪，需要转换为年薪
+            annual_salary = record['salary'] * 12
+
+            # 入息上下限
+            income_for_mpf = max(min(annual_salary, max_income), min_income)
+
+            # 缴费
+            emp_contrib = income_for_mpf * emp_rate
+            er_contrib = income_for_mpf * er_rate
+            total = emp_contrib + er_contrib
+
+            # 累积
+            balances = balances * (1 + return_rate) + total
+            total_emp += emp_contrib
+            total_er += er_contrib
+
+        # 退休时账户余额
+        final_balance = balances
+
+        # 折算为退休期月养老金（定期年金）
+        i = retire_return / 12
+        n = retire_years * 12
+
+        if i > 0:
+            monthly_payout = final_balance * i / (1 - (1 + i) ** -n)
+        else:
+            monthly_payout = final_balance / n
+
+        return {
+            "MPF_balance": final_balance,
+            "MPF_monthly_pension": monthly_payout,
+            "employee_contrib": total_emp,
+            "employer_contrib": total_er,
+            "total_contrib": total_emp + total_er
+        }
 
     def _calculate_monthly_pension(self,
                                  account_balance: float,
