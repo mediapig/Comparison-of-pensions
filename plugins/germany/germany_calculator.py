@@ -4,33 +4,33 @@ from datetime import date
 from core.base_calculator import BasePensionCalculator
 from core.models import Person, SalaryProfile, EconomicFactors, PensionResult, EmploymentType
 
-class USAPensionCalculator(BasePensionCalculator):
-    """美国退休金计算器（社会保障金）"""
+class GermanyPensionCalculator(BasePensionCalculator):
+    """德国退休金计算器（俾斯麦模式）"""
 
     def __init__(self):
-        super().__init__("US", "美国")
+        super().__init__("DE", "德国")
 
     def _get_retirement_ages(self) -> Dict[str, int]:
-        """获取美国退休年龄"""
+        """获取德国退休年龄"""
         return {
-            "male": 67,  # 完全退休年龄
+            "male": 67,      # 2029年后统一为67岁
             "female": 67
         }
 
     def _get_contribution_rates(self) -> Dict[str, float]:
-        """获取美国缴费比例"""
+        """获取德国缴费比例"""
         return {
-            "employee": 0.062,      # 6.2% 社会保障税
-            "civil_servant": 0.062,
-            "self_employed": 0.124,  # 自雇人士缴纳12.4%
-            "farmer": 0.062
+            "employee": 0.093,       # 9.3% 个人缴费
+            "civil_servant": 0.093,  # 公务员缴费比例
+            "self_employed": 0.186,  # 自雇人士缴纳18.6%
+            "farmer": 0.093          # 农民缴费比例
         }
 
     def calculate_pension(self,
                          person: Person,
                          salary_profile: SalaryProfile,
                          economic_factors: EconomicFactors) -> PensionResult:
-        """计算美国社会保障金"""
+        """计算德国退休金"""
         retirement_age = self.get_retirement_age(person)
         work_years = retirement_age - person.age
 
@@ -42,14 +42,15 @@ class USAPensionCalculator(BasePensionCalculator):
             person, salary_profile, economic_factors
         )
 
-        # 计算平均指数化月收入 (AIME)
-        aime = self._calculate_aime(contribution_history, economic_factors)
+        # 计算退休金点数
+        pension_points = self._calculate_pension_points(
+            contribution_history, economic_factors
+        )
 
-        # 计算主要保险金额 (PIA)
-        pia = self._calculate_pia(aime, retirement_age)
-
-        # 月退休金
-        monthly_pension = pia
+        # 计算月退休金
+        monthly_pension = self._calculate_monthly_pension(
+            pension_points, retirement_age, economic_factors
+        )
 
         # 计算总缴费
         total_contribution = sum(record['personal_contribution'] for record in contribution_history)
@@ -73,10 +74,9 @@ class USAPensionCalculator(BasePensionCalculator):
             total_benefit=total_benefit,
             break_even_age=break_even_age,
             roi=roi,
-            original_currency="USD",
+            original_currency="EUR",
             details={
-                'aime': aime,
-                'pia': pia,
+                'pension_points': pension_points,
                 'work_years': work_years,
                 'retirement_age': retirement_age
             }
@@ -100,17 +100,15 @@ class USAPensionCalculator(BasePensionCalculator):
             age = current_age + year
             salary = salary_profile.get_salary_at_age(age, person.age)
 
-            # 美国社会保障税有上限（2024年约为$168,600）
-            social_security_cap = 168600
+            # 德国有缴费上限（2024年约为87,600欧元）
+            contribution_ceiling = 87600
+            taxable_salary = min(salary * 12, contribution_ceiling)
 
-            # 应税工资
-            taxable_wage = min(salary, social_security_cap)
+            # 个人缴费（9.3%）
+            personal_contribution = taxable_salary * 0.093
 
-            # 个人缴费（6.2%）
-            personal_contribution = taxable_wage * 0.062 * 12
-
-            # 雇主缴费（6.2%）
-            employer_contribution = taxable_wage * 0.062 * 12
+            # 雇主缴费（9.3%）
+            employer_contribution = taxable_salary * 0.093
 
             # 总缴费
             total_contribution = personal_contribution + employer_contribution
@@ -119,7 +117,7 @@ class USAPensionCalculator(BasePensionCalculator):
                 'age': age,
                 'year': person.start_work_date.year + year,
                 'salary': salary,
-                'taxable_wage': taxable_wage,
+                'taxable_salary': taxable_salary,
                 'personal_contribution': personal_contribution,
                 'employer_contribution': employer_contribution,
                 'total_contribution': total_contribution
@@ -127,65 +125,57 @@ class USAPensionCalculator(BasePensionCalculator):
 
         return history
 
-    def _calculate_aime(self,
-                       contribution_history: List[Dict[str, Any]],
-                       economic_factors: EconomicFactors) -> float:
-        """计算平均指数化月收入 (AIME)"""
+    def _calculate_pension_points(self,
+                                contribution_history: List[Dict[str, Any]],
+                                economic_factors: EconomicFactors) -> float:
+        """计算退休金点数"""
         if not contribution_history:
             return 0
 
-        # 获取最高的35年收入
-        yearly_earnings = []
+        total_points = 0
+
         for record in contribution_history:
-            yearly_earnings.append({
-                'year': record['year'],
-                'taxable_wage': record['taxable_wage']
-            })
+            # 德国退休金点数计算
+            # 点数 = (个人缴费 / 基准缴费) * 1.0
 
-        # 按年份排序
-        yearly_earnings.sort(key=lambda x: x['year'])
+            # 基准缴费（假设为平均工资的9.3%）
+            base_contribution = 50000 * 0.093  # 假设平均工资5万欧元
 
-        # 计算指数化收入
-        indexed_earnings = []
-        for i, earning in enumerate(yearly_earnings):
-            # 简化的指数化计算（实际应该使用官方指数）
-            years_to_retirement = len(yearly_earnings) - i - 1
-            indexed_wage = earning['taxable_wage'] * (1 + economic_factors.inflation_rate) ** years_to_retirement
-            indexed_earnings.append(indexed_wage)
+            if base_contribution > 0:
+                points = (record['personal_contribution'] / base_contribution)
+                total_points += points
 
-        # 取最高的35年（如果不足35年，用0填充）
-        while len(indexed_earnings) < 35:
-            indexed_earnings.append(0)
+        return total_points
 
-        # 排序并取最高的35年
-        indexed_earnings.sort(reverse=True)
-        top_35_earnings = indexed_earnings[:35]
+    def _calculate_monthly_pension(self,
+                                 pension_points: float,
+                                 retirement_age: int,
+                                 economic_factors: EconomicFactors) -> float:
+        """计算月退休金"""
+        # 德国退休金计算公式
+        # 月退休金 = 退休金点数 × 退休金点数价值 × 退休年龄调整系数
 
-        # 计算AIME
-        total_indexed_earnings = sum(top_35_earnings)
-        aime = total_indexed_earnings / (35 * 12)  # 转换为月收入
+        # 退休金点数价值（2024年约为37.60欧元）
+        point_value = 37.60
 
-        return aime
-
-    def _calculate_pia(self, aime: float, retirement_age: int) -> float:
-        """计算主要保险金额 (PIA)"""
-        # 2024年的PIA计算（简化版）
-        # 实际计算更复杂，这里使用近似值
-
-        if aime <= 1174:
-            pia = aime * 0.90
-        elif aime <= 7078:
-            pia = 1174 * 0.90 + (aime - 1174) * 0.32
-        else:
-            pia = 1174 * 0.90 + (7078 - 1174) * 0.32 + (aime - 7078) * 0.15
-
-        # 如果提前退休，会有减少
+        # 退休年龄调整系数
         if retirement_age < 67:
+            # 提前退休减少
             reduction_months = (67 - retirement_age) * 12
-            reduction_rate = 0.00556  # 每月减少0.556%
-            pia = pia * (1 - reduction_rate * reduction_months)
+            reduction_rate = 0.003  # 每月减少0.3%
+            age_factor = 1 - (reduction_rate * reduction_months)
+        elif retirement_age > 67:
+            # 延迟退休增加
+            bonus_months = (retirement_age - 67) * 12
+            bonus_rate = 0.005  # 每月增加0.5%
+            age_factor = 1 + (bonus_rate * bonus_months)
+        else:
+            age_factor = 1.0
 
-        return pia
+        # 计算月退休金
+        monthly_pension = pension_points * point_value * age_factor
+
+        return monthly_pension
 
     def _calculate_break_even_age(self,
                                 total_contribution: float,

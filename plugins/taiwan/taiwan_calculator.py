@@ -4,38 +4,37 @@ from datetime import date
 from core.base_calculator import BasePensionCalculator
 from core.models import Person, SalaryProfile, EconomicFactors, PensionResult, EmploymentType
 
-class ChinaPensionCalculator(BasePensionCalculator):
-    """中国退休金计算器"""
+class TaiwanPensionCalculator(BasePensionCalculator):
+    """台湾退休金计算器（劳保年金）"""
 
     def __init__(self):
-        super().__init__("CN", "中国")
+        super().__init__("TW", "台湾")
 
     def _get_retirement_ages(self) -> Dict[str, int]:
-        """获取中国退休年龄"""
+        """获取台湾退休年龄"""
         return {
-            "male": 60,
-            "female": 55
+            "male": 65,      # 劳保年金请领年龄
+            "female": 65
         }
 
     def _get_contribution_rates(self) -> Dict[str, float]:
-        """获取中国缴费比例"""
+        """获取台湾缴费比例"""
         return {
-            "employee": 0.08,        # 个人缴费比例
-            "civil_servant": 0.08,   # 公务员个人缴费比例
-            "self_employed": 0.20,   # 自由职业者缴费比例
-            "farmer": 0.10           # 农民缴费比例
+            "employee": 0.20,        # 20% 总缴费比例（个人+雇主+政府）
+            "civil_servant": 0.20,   # 公务员缴费比例
+            "self_employed": 0.20,   # 自雇人士缴费比例
+            "farmer": 0.20           # 农民缴费比例
         }
 
     def calculate_pension(self,
                          person: Person,
                          salary_profile: SalaryProfile,
                          economic_factors: EconomicFactors) -> PensionResult:
-        """计算中国退休金"""
+        """计算台湾劳保年金"""
         retirement_age = self.get_retirement_age(person)
         work_years = retirement_age - person.age
 
         if work_years <= 0:
-            # 已经退休
             work_years = person.work_years
 
         # 计算缴费历史
@@ -43,18 +42,13 @@ class ChinaPensionCalculator(BasePensionCalculator):
             person, salary_profile, economic_factors
         )
 
-        # 计算个人账户养老金
-        personal_account_pension = self._calculate_personal_account_pension(
-            contribution_history, economic_factors
-        )
+        # 计算平均月投保薪资
+        avg_insured_salary = self._calculate_average_insured_salary(contribution_history)
 
-        # 计算基础养老金
-        basic_pension = self._calculate_basic_pension(
-            person, salary_profile, work_years, economic_factors
+        # 计算劳保年金
+        monthly_pension = self._calculate_labor_pension(
+            avg_insured_salary, work_years, economic_factors
         )
-
-        # 总月退休金
-        monthly_pension = personal_account_pension + basic_pension
 
         # 计算总缴费
         total_contribution = sum(record['personal_contribution'] for record in contribution_history)
@@ -78,10 +72,9 @@ class ChinaPensionCalculator(BasePensionCalculator):
             total_benefit=total_benefit,
             break_even_age=break_even_age,
             roi=roi,
-            original_currency="CNY",
+            original_currency="TWD",
             details={
-                'personal_account_pension': personal_account_pension,
-                'basic_pension': basic_pension,
+                'avg_insured_salary': avg_insured_salary,
                 'work_years': work_years,
                 'retirement_age': retirement_age
             }
@@ -105,70 +98,58 @@ class ChinaPensionCalculator(BasePensionCalculator):
             age = current_age + year
             salary = salary_profile.get_salary_at_age(age, person.age)
 
-            # 社保缴费基数（通常有上下限）
-            social_base = min(max(salary, 3000), 30000)  # 假设上下限
+            # 台湾劳保有投保薪资上下限（2024年约为25,250-45,800新台币）
+            min_insured_salary = 25250
+            max_insured_salary = 45800
+            insured_salary = min(max(salary, min_insured_salary), max_insured_salary)
 
-            # 个人缴费
-            personal_contribution = social_base * 0.08 * 12
+            # 总缴费（20%）
+            total_contribution = insured_salary * 0.20 * 12
 
-            # 单位缴费（计入统筹账户）
-            employer_contribution = social_base * 0.16 * 12
+            # 个人缴费（约7%）
+            personal_contribution = insured_salary * 0.07 * 12
 
-            # 个人账户计入（个人缴费 + 单位缴费的一部分）
-            personal_account_contribution = personal_contribution + (employer_contribution * 0.3)
+            # 雇主缴费（约13%）
+            employer_contribution = insured_salary * 0.13 * 12
 
             history.append({
                 'age': age,
                 'year': person.start_work_date.year + year,
                 'salary': salary,
-                'social_base': social_base,
+                'insured_salary': insured_salary,
                 'personal_contribution': personal_contribution,
                 'employer_contribution': employer_contribution,
-                'personal_account_contribution': personal_account_contribution
+                'total_contribution': total_contribution
             })
 
         return history
 
-    def _calculate_personal_account_pension(self,
-                                          contribution_history: List[Dict[str, Any]],
-                                          economic_factors: EconomicFactors) -> float:
-        """计算个人账户养老金"""
-        total_contribution = sum(record['personal_account_contribution'] for record in contribution_history)
+    def _calculate_average_insured_salary(self,
+                                        contribution_history: List[Dict[str, Any]]) -> float:
+        """计算平均月投保薪资"""
+        if not contribution_history:
+            return 0
 
-        # 考虑投资回报
-        avg_years = len(contribution_history) / 2
-        future_value = self.calculate_future_value(
-            total_contribution, avg_years, economic_factors.social_security_return_rate
-        )
+        total_insured_salary = sum(record['insured_salary'] for record in contribution_history)
+        return total_insured_salary / len(contribution_history)
 
-        # 个人账户养老金 = 账户余额 / 计发月数（假设60岁退休，计发139个月）
-        return future_value / 139
-
-    def _calculate_basic_pension(self,
-                               person: Person,
-                               salary_profile: SalaryProfile,
+    def _calculate_labor_pension(self,
+                               avg_insured_salary: float,
                                work_years: int,
                                economic_factors: EconomicFactors) -> float:
-        """计算基础养老金"""
-        # 基础养老金 = (全省上年度在岗职工月平均工资 + 本人指数化月平均缴费工资) / 2 × 缴费年限 × 1%
+        """计算劳保年金"""
+        # 台湾劳保年金计算公式
+        # 月年金 = 平均月投保薪资 × 年资 × 1.55% × 0.65
 
-        # 假设全省平均工资
-        avg_social_salary = 8000  # 这个值应该根据实际情况调整
+        # 基础年金
+        base_pension = avg_insured_salary * work_years * 0.0155
 
-        # 计算本人指数化月平均缴费工资
-        total_indexed_salary = 0
-        for year in range(work_years):
-            age = person.age + year
-            salary = salary_profile.get_salary_at_age(age, person.age)
-            # 简化计算，假设指数为1
-            total_indexed_salary += salary
+        # 考虑投资回报的调整系数
+        investment_factor = 0.65
 
-        avg_indexed_salary = total_indexed_salary / work_years
+        monthly_pension = base_pension * investment_factor
 
-        # 基础养老金
-        basic_pension = (avg_social_salary + avg_indexed_salary) / 2 * work_years * 0.01
-
-        return basic_pension
+        return monthly_pension
 
     def _calculate_break_even_age(self,
                                 total_contribution: float,

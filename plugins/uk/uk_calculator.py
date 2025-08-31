@@ -4,38 +4,37 @@ from datetime import date
 from core.base_calculator import BasePensionCalculator
 from core.models import Person, SalaryProfile, EconomicFactors, PensionResult, EmploymentType
 
-class ChinaPensionCalculator(BasePensionCalculator):
-    """中国退休金计算器"""
+class UKPensionCalculator(BasePensionCalculator):
+    """英国退休金计算器（国家养老金）"""
 
     def __init__(self):
-        super().__init__("CN", "中国")
+        super().__init__("UK", "英国")
 
     def _get_retirement_ages(self) -> Dict[str, int]:
-        """获取中国退休年龄"""
+        """获取英国退休年龄"""
         return {
-            "male": 60,
-            "female": 55
+            "male": 66,      # 国家养老金请领年龄
+            "female": 66
         }
 
     def _get_contribution_rates(self) -> Dict[str, float]:
-        """获取中国缴费比例"""
+        """获取英国缴费比例"""
         return {
-            "employee": 0.08,        # 个人缴费比例
-            "civil_servant": 0.08,   # 公务员个人缴费比例
-            "self_employed": 0.20,   # 自由职业者缴费比例
-            "farmer": 0.10           # 农民缴费比例
+            "employee": 0.12,        # 12% 国民保险缴费
+            "civil_servant": 0.12,   # 公务员缴费比例
+            "self_employed": 0.12,   # 自雇人士缴费比例
+            "farmer": 0.12           # 农民缴费比例
         }
 
     def calculate_pension(self,
                          person: Person,
                          salary_profile: SalaryProfile,
                          economic_factors: EconomicFactors) -> PensionResult:
-        """计算中国退休金"""
+        """计算英国国家养老金"""
         retirement_age = self.get_retirement_age(person)
         work_years = retirement_age - person.age
 
         if work_years <= 0:
-            # 已经退休
             work_years = person.work_years
 
         # 计算缴费历史
@@ -43,18 +42,13 @@ class ChinaPensionCalculator(BasePensionCalculator):
             person, salary_profile, economic_factors
         )
 
-        # 计算个人账户养老金
-        personal_account_pension = self._calculate_personal_account_pension(
-            contribution_history, economic_factors
+        # 计算国家养老金
+        state_pension = self._calculate_state_pension(
+            contribution_history, work_years, economic_factors
         )
 
-        # 计算基础养老金
-        basic_pension = self._calculate_basic_pension(
-            person, salary_profile, work_years, economic_factors
-        )
-
-        # 总月退休金
-        monthly_pension = personal_account_pension + basic_pension
+        # 计算月退休金
+        monthly_pension = state_pension
 
         # 计算总缴费
         total_contribution = sum(record['personal_contribution'] for record in contribution_history)
@@ -78,10 +72,9 @@ class ChinaPensionCalculator(BasePensionCalculator):
             total_benefit=total_benefit,
             break_even_age=break_even_age,
             roi=roi,
-            original_currency="CNY",
+            original_currency="GBP",
             details={
-                'personal_account_pension': personal_account_pension,
-                'basic_pension': basic_pension,
+                'state_pension': state_pension,
                 'work_years': work_years,
                 'retirement_age': retirement_age
             }
@@ -105,70 +98,61 @@ class ChinaPensionCalculator(BasePensionCalculator):
             age = current_age + year
             salary = salary_profile.get_salary_at_age(age, person.age)
 
-            # 社保缴费基数（通常有上下限）
-            social_base = min(max(salary, 3000), 30000)  # 假设上下限
+            # 英国国民保险有缴费上下限（2024年约为12,570-50,270英镑）
+            ni_threshold = 12570
+            ni_upper_limit = 50270
 
-            # 个人缴费
-            personal_contribution = social_base * 0.08 * 12
+            # 计算应税收入
+            if salary * 12 <= ni_threshold:
+                taxable_income = 0
+            elif salary * 12 <= ni_upper_limit:
+                taxable_income = (salary * 12) - ni_threshold
+            else:
+                taxable_income = ni_upper_limit - ni_threshold
 
-            # 单位缴费（计入统筹账户）
-            employer_contribution = social_base * 0.16 * 12
+            # 个人缴费（12%）
+            personal_contribution = taxable_income * 0.12
 
-            # 个人账户计入（个人缴费 + 单位缴费的一部分）
-            personal_account_contribution = personal_contribution + (employer_contribution * 0.3)
+            # 雇主缴费（13.8%）
+            employer_contribution = taxable_income * 0.138
+
+            # 总缴费
+            total_contribution = personal_contribution + employer_contribution
 
             history.append({
                 'age': age,
                 'year': person.start_work_date.year + year,
                 'salary': salary,
-                'social_base': social_base,
+                'taxable_income': taxable_income,
                 'personal_contribution': personal_contribution,
                 'employer_contribution': employer_contribution,
-                'personal_account_contribution': personal_account_contribution
+                'total_contribution': total_contribution
             })
 
         return history
 
-    def _calculate_personal_account_pension(self,
-                                          contribution_history: List[Dict[str, Any]],
-                                          economic_factors: EconomicFactors) -> float:
-        """计算个人账户养老金"""
-        total_contribution = sum(record['personal_account_contribution'] for record in contribution_history)
-
-        # 考虑投资回报
-        avg_years = len(contribution_history) / 2
-        future_value = self.calculate_future_value(
-            total_contribution, avg_years, economic_factors.social_security_return_rate
-        )
-
-        # 个人账户养老金 = 账户余额 / 计发月数（假设60岁退休，计发139个月）
-        return future_value / 139
-
-    def _calculate_basic_pension(self,
-                               person: Person,
-                               salary_profile: SalaryProfile,
+    def _calculate_state_pension(self,
+                               contribution_history: List[Dict[str, Any]],
                                work_years: int,
                                economic_factors: EconomicFactors) -> float:
-        """计算基础养老金"""
-        # 基础养老金 = (全省上年度在岗职工月平均工资 + 本人指数化月平均缴费工资) / 2 × 缴费年限 × 1%
+        """计算国家养老金"""
+        # 英国国家养老金计算
+        # 需要35年缴费才能获得全额养老金
 
-        # 假设全省平均工资
-        avg_social_salary = 8000  # 这个值应该根据实际情况调整
+        # 基础养老金金额（2024年约为185.15英镑/周）
+        full_pension_weekly = 185.15
+        full_pension_monthly = full_pension_weekly * 52 / 12
 
-        # 计算本人指数化月平均缴费工资
-        total_indexed_salary = 0
-        for year in range(work_years):
-            age = person.age + year
-            salary = salary_profile.get_salary_at_age(age, person.age)
-            # 简化计算，假设指数为1
-            total_indexed_salary += salary
+        # 根据缴费年限调整
+        required_years = 35
+        if work_years >= required_years:
+            adjustment_factor = 1.0
+        else:
+            adjustment_factor = work_years / required_years
 
-        avg_indexed_salary = total_indexed_salary / work_years
+        monthly_pension = full_pension_monthly * adjustment_factor
 
-        # 基础养老金
-        basic_pension = (avg_social_salary + avg_indexed_salary) / 2 * work_years * 0.01
-
-        return basic_pension
+        return monthly_pension
 
     def _calculate_break_even_age(self,
                                 total_contribution: float,
