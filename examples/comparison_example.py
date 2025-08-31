@@ -92,13 +92,13 @@ def main():
         for _, row in data.iterrows():
             country_name = engine.calculators[row['country']].country_name
             print(f"  {country_name}: 月退休金 {row['monthly_pension']:.0f}元, ROI {row['roi']:.1%}")
-    
+
     print("\n=== 投资回报率敏感性分析 ===")
     investment_analysis = engine.sensitivity_analysis(
         person, salary_profile, economic_factors, 'investment_return_rate',
         [0.03, 0.05, 0.07, 0.09, 0.11]
     )
-    
+
     # 按投资回报率分组显示
     for return_rate in [0.03, 0.05, 0.07, 0.09, 0.11]:
         data = investment_analysis[investment_analysis['value'] == return_rate]
