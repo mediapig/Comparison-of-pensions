@@ -23,7 +23,9 @@ class GermanyPensionCalculator(BasePensionCalculator):
             "employee": 0.093,       # 9.3% 个人缴费
             "civil_servant": 0.093,  # 公务员缴费比例
             "self_employed": 0.186,  # 自雇人士缴纳18.6%
-            "farmer": 0.093          # 农民缴费比例
+            "farmer": 0.093,         # 农民缴费比例
+            "employer": 0.093,       # 雇主缴费比例 9.3%
+            "total": 0.186           # 总缴费比例 18.6%
         }
 
     def calculate_pension(self,

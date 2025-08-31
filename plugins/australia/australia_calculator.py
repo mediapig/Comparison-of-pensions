@@ -23,7 +23,9 @@ class AustraliaPensionCalculator(BasePensionCalculator):
             "employee": 0.105,       # 10.5% 雇主强制缴费
             "civil_servant": 0.105,  # 公务员缴费比例
             "self_employed": 0.105,  # 自雇人士缴费比例
-            "farmer": 0.105          # 农民缴费比例
+            "farmer": 0.105,         # 农民缴费比例
+            "employer": 0.105,       # 雇主缴费比例 10.5%
+            "total": 0.105           # 总缴费比例 10.5%（主要是雇主缴费）
         }
 
     def calculate_pension(self,
@@ -103,8 +105,8 @@ class AustraliaPensionCalculator(BasePensionCalculator):
             # 澳大利亚超级年金有缴费上限（2024年约为27,500澳币）
             concessional_cap = 27500
 
-            # 雇主强制缴费（10.5%）
-            employer_contribution = min(salary * 0.105, concessional_cap)
+            # 雇主强制缴费（12%）
+            employer_contribution = min(salary * 0.12, concessional_cap)
 
             # 个人自愿缴费（可选）
             personal_contribution = 0  # 假设无个人缴费

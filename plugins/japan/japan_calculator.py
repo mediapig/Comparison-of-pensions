@@ -23,7 +23,9 @@ class JapanPensionCalculator(BasePensionCalculator):
             "employee": 0.0915,      # 9.15% 厚生年金缴费
             "civil_servant": 0.0915, # 公务员缴费比例
             "self_employed": 0.0165, # 国民年金缴费（月额）
-            "farmer": 0.0165         # 农民缴费比例
+            "farmer": 0.0165,        # 农民缴费比例
+            "employer": 0.0915,      # 雇主缴费比例 9.15%
+            "total": 0.183           # 总缴费比例 18.3%
         }
 
     def calculate_pension(self,

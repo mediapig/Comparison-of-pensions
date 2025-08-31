@@ -20,10 +20,12 @@ class ChinaPensionCalculator(BasePensionCalculator):
     def _get_contribution_rates(self) -> Dict[str, float]:
         """获取中国缴费比例"""
         return {
-            "employee": 0.08,        # 个人缴费比例
-            "civil_servant": 0.08,   # 公务员个人缴费比例
-            "self_employed": 0.20,   # 自由职业者缴费比例
-            "farmer": 0.10           # 农民缴费比例
+            "employee": 0.08,        # 个人缴费比例 8%
+            "civil_servant": 0.08,   # 公务员个人缴费比例 8%
+            "self_employed": 0.20,   # 自由职业者缴费比例 20%
+            "farmer": 0.10,          # 农民缴费比例 10%
+            "employer": 0.16,        # 单位缴费比例 16%
+            "total": 0.24            # 总缴费比例 24%
         }
 
     def calculate_pension(self,
@@ -106,16 +108,17 @@ class ChinaPensionCalculator(BasePensionCalculator):
             salary = salary_profile.get_salary_at_age(age, person.age)
 
             # 社保缴费基数（通常有上下限）
-            social_base = min(max(salary, 3000), 30000)  # 假设上下限
+            # 2024年北京社保缴费基数下限：5869元，上限：31884元
+            social_base = min(max(salary, 5869), 31884)
 
-            # 个人缴费
+            # 个人缴费 8%
             personal_contribution = social_base * 0.08 * 12
 
-            # 单位缴费（计入统筹账户）
+            # 单位缴费 16%
             employer_contribution = social_base * 0.16 * 12
 
-            # 个人账户计入（个人缴费 + 单位缴费的一部分）
-            personal_account_contribution = personal_contribution + (employer_contribution * 0.3)
+            # 个人账户计入（个人缴费8% + 单位缴费的8%）
+            personal_account_contribution = personal_contribution + (employer_contribution * 0.5)
 
             history.append({
                 'age': age,
@@ -141,8 +144,20 @@ class ChinaPensionCalculator(BasePensionCalculator):
             total_contribution, avg_years, economic_factors.social_security_return_rate
         )
 
-        # 个人账户养老金 = 账户余额 / 计发月数（假设60岁退休，计发139个月）
-        return future_value / 139
+        # 个人账户养老金 = 账户余额 / 计发月数
+        # 根据退休年龄确定计发月数
+        # 60岁退休：139个月，55岁退休：170个月，50岁退休：195个月
+        retirement_age = 60  # 假设男性60岁退休
+        if retirement_age == 60:
+            months = 139
+        elif retirement_age == 55:
+            months = 170
+        elif retirement_age == 50:
+            months = 195
+        else:
+            months = 139  # 默认值
+
+        return future_value / months
 
     def _calculate_basic_pension(self,
                                person: Person,
