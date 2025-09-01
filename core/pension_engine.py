@@ -42,9 +42,16 @@ class PensionEngine:
         """对比不同国家的退休金"""
         results = self.calculate_all_countries(person, salary_profile, economic_factors)
 
+        # 导入汇率转换器
+        from utils.currency_converter import converter
+
         comparison_data = []
         for country_code, result in results.items():
             if result:
+                # 转换为显示货币
+                if result.original_currency != economic_factors.display_currency:
+                    result = result.convert_to_currency(economic_factors.display_currency, converter)
+
                 comparison_data.append({
                     'country': country_code,
                     'country_name': self.calculators[country_code].country_name,
@@ -52,7 +59,8 @@ class PensionEngine:
                     'total_contribution': result.total_contribution,
                     'total_benefit': result.total_benefit,
                     'roi': result.roi,
-                    'break_even_age': result.break_even_age
+                    'break_even_age': result.break_even_age,
+                    'currency': result.original_currency
                 })
 
         df = pd.DataFrame(comparison_data)
@@ -76,7 +84,8 @@ class PensionEngine:
                 inflation_rate=base_economic_factors.inflation_rate,
                 investment_return_rate=base_economic_factors.investment_return_rate,
                 social_security_return_rate=base_economic_factors.social_security_return_rate,
-                currency=base_economic_factors.currency
+                base_currency=base_economic_factors.base_currency,
+                display_currency=base_economic_factors.display_currency
             )
 
             # 设置变化的参数
