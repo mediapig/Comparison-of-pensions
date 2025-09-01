@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(mkdir:*)",
+      "Bash(touch:*)",
+      "Bash(PYTHONPATH=/Users/YuanKai/MyWork/Comparison-of-pensions python3 plugins/japan/japan_calculator.py)",
+      "Bash(PYTHONPATH=/Users/YuanKai/MyWork/Comparison-of-pensions python3 plugins/canada/canada_calculator.py)"
     ],
     "deny": [],
     "ask": []
