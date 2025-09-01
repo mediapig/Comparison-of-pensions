@@ -80,10 +80,10 @@ def analyze_usa_only(engine: PensionEngine, scenario_name: str, monthly_salary: 
         start_work_date=date(1995, 7, 1)
     )
 
-    # 创建工资档案 - 工资不增长
+    # 创建工资档案 - 工资每年增长2%
     salary_profile = SalaryProfile(
         base_salary=monthly_salary,
-        annual_growth_rate=0.00
+        annual_growth_rate=0.02
     )
 
     # 创建经济因素
@@ -132,10 +132,17 @@ def analyze_usa_only(engine: PensionEngine, scenario_name: str, monthly_salary: 
     print(f"\n📋 缴费上限分析:")
     print("-" * 50)
 
+    # 显示2025年401K准确的上限信息
+    print(f"2025年401K缴费上限:")
+    print(f"  • 402(g) 员工递延上限：$23,500")
+    print(f"  • 50+ catch-up：$7,500")
+    print(f"  • 60–63 super catch-up：$11,250（替代 $7,500；计划需支持）")
+    print(f"  • 415(c) 员工+雇主合计上限：$70,000（不含 catch-up）")
+    print(f"  • 60–63岁可递延总额 = $23,500 + $11,250 = $34,750")
+
+    # 显示当前年龄信息
     age_limits = k401_analysis['age_limits']
-    print(f"当前年龄: {age_limits['current_age']}岁")
-    print(f"50岁+追加缴费上限: ${age_limits['age_50_limit']:,}")
-    print(f"60-63岁额外追加上限: ${age_limits['age_60_limit']:,}")
+    print(f"\n当前年龄: {age_limits['current_age']}岁")
 
     # 4. 雇主配比分析
     print(f"\n💼 雇主配比分析:")
@@ -151,8 +158,11 @@ def analyze_usa_only(engine: PensionEngine, scenario_name: str, monthly_salary: 
     print(f"\n📈 不同缴费比例场景分析:")
     print("-" * 50)
 
+    # 将人民币月薪转换为美元
+    cny_to_usd_rate = 0.14
+    monthly_salary_usd = monthly_salary * cny_to_usd_rate
     scenarios = usa_calculator.get_contribution_scenarios(
-        monthly_salary * 12, 30, 0.07
+        monthly_salary_usd * 12, 30, 0.07
     )
 
     print(f"{'缴费比例':<10} {'年缴费':<15} {'30年后余额':<20} {'月退休金':<15}")
@@ -184,11 +194,11 @@ def analyze_usa_only(engine: PensionEngine, scenario_name: str, monthly_salary: 
     print(f"\n📋 总结:")
     print("-" * 50)
 
-            # 计算替代率 - 工资不增长，退休时工资就是初始工资
-    annual_salary = monthly_salary * 12
-    replacement_rate = (basic_result.monthly_pension * 12) / annual_salary * 100
+            # 计算替代率 - 使用美元工资计算
+    annual_salary_usd = monthly_salary_usd * 12
+    replacement_rate = (basic_result.monthly_pension * 12) / annual_salary_usd * 100
 
-    print(f"年工资: {converter.format_amount(annual_salary, 'USD')}")
+    print(f"年工资: {converter.format_amount(annual_salary_usd, 'USD')}")
     print(f"退休后年养老金: {converter.format_amount(basic_result.monthly_pension * 12, 'USD')}")
     print(f"替代率: {replacement_rate:.1f}%")
 
@@ -366,10 +376,10 @@ def analyze_singapore_only(engine: PensionEngine, scenario_name: str, monthly_sa
         start_work_date=date(1995, 7, 1)
     )
 
-    # 创建工资档案 - 工资不增长
+    # 创建工资档案 - 工资每年增长2%
     salary_profile = SalaryProfile(
         base_salary=monthly_salary,
-        annual_growth_rate=0.00
+        annual_growth_rate=0.02
     )
 
     # 创建经济因素
@@ -425,6 +435,510 @@ def analyze_singapore_only(engine: PensionEngine, scenario_name: str, monthly_sa
     print(f"年工资: {converter.format_amount(monthly_salary * 12, 'CNY')} (¥)")
     print(f"年工资: {converter.format_amount(annual_salary_sgd, 'SGD')} (S$)")
     print(f"退休后年养老金: {converter.format_amount(result.monthly_pension * 12, 'SGD')}")
+    print(f"替代率: {replacement_rate:.1f}%")
+
+def analyze_china_only(engine: PensionEngine, scenario_name: str, monthly_salary: float):
+    """只分析中国养老金"""
+    print(f"\n{'='*80}")
+    print(f"🇨🇳 中国养老金分析 - {scenario_name}")
+    print(f"月薪: {converter.format_amount(monthly_salary, 'CNY')}")
+    print(f"工作年限: 30年")
+    print(f"退休年龄: 60岁")
+    print(f"领取年限: 20年")
+    print(f"{'='*80}")
+
+    # 创建个人信息
+    person = Person(
+        name="测试用户",
+        birth_date=date(1990, 1, 1),
+        gender=Gender.MALE,
+        employment_type=EmploymentType.EMPLOYEE,
+        start_work_date=date(1995, 7, 1)
+    )
+
+    # 创建工资档案 - 工资不增长
+    salary_profile = SalaryProfile(
+        base_salary=monthly_salary,
+        annual_growth_rate=0.00
+    )
+
+    # 创建经济因素
+    economic_factors = EconomicFactors(
+        inflation_rate=0.03,
+        investment_return_rate=0.07,
+        social_security_return_rate=0.05,
+        base_currency="CNY",
+        display_currency="CNY"
+    )
+
+    # 获取中国计算器
+    cn_calculator = engine.calculators['CN']
+
+    print(f"\n🏦 正在计算中国养老金...")
+
+    # 计算中国养老金
+    result = cn_calculator.calculate_pension(person, salary_profile, economic_factors)
+
+    # 显示基本信息
+    print(f"\n📊 养老金计算结果:")
+    print("-" * 50)
+    print(f"月退休金: {converter.format_amount(result.monthly_pension, 'CNY')}")
+    print(f"总缴费: {converter.format_amount(result.total_contribution, 'CNY')}")
+    print(f"总收益: {converter.format_amount(result.total_benefit, 'CNY')}")
+    print(f"投资回报率: {result.roi:.1%}")
+    print(f"回本年龄: {result.break_even_age}岁" if result.break_even_age else "回本年龄: 无法计算")
+
+    # 显示账户详情
+    details = result.details
+    print(f"\n🔍 养老金账户详情:")
+    print("-" * 50)
+    if 'basic_pension' in details:
+        print(f"基础养老金: {converter.format_amount(details['basic_pension'], 'CNY')}")
+    if 'personal_account_pension' in details:
+        print(f"个人账户养老金: {converter.format_amount(details['personal_account_pension'], 'CNY')}")
+
+    # 显示缴费率信息
+    contribution_rates = cn_calculator.contribution_rates
+    print(f"\n💰 缴费率信息:")
+    print("-" * 50)
+    print(f"总缴费率: {contribution_rates['total']:.1%}")
+    print(f"员工缴费率: {contribution_rates['employee']:.1%}")
+    print(f"雇主缴费率: {contribution_rates['employer']:.1%}")
+
+    # 计算替代率
+    annual_salary = monthly_salary * 12
+    replacement_rate = (result.monthly_pension * 12) / annual_salary * 100
+
+    print(f"\n📋 总结:")
+    print("-" * 50)
+    print(f"年工资: {converter.format_amount(annual_salary, 'CNY')}")
+    print(f"退休后年养老金: {converter.format_amount(result.monthly_pension * 12, 'CNY')}")
+    print(f"替代率: {replacement_rate:.1f}%")
+
+def analyze_germany_only(engine: PensionEngine, scenario_name: str, monthly_salary: float):
+    """只分析德国养老金"""
+    print(f"\n{'='*80}")
+    print(f"🇩🇪 德国养老金分析 - {scenario_name}")
+    print(f"月薪: {converter.format_amount(monthly_salary, 'CNY')}")
+    print(f"工作年限: 30年")
+    print(f"退休年龄: 67岁")
+    print(f"领取年限: 20年")
+    print(f"{'='*80}")
+
+    # 创建个人信息
+    person = Person(
+        name="测试用户",
+        birth_date=date(1990, 1, 1),
+        gender=Gender.MALE,
+        employment_type=EmploymentType.EMPLOYEE,
+        start_work_date=date(1995, 7, 1)
+    )
+
+    # 创建工资档案 - 工资不增长
+    salary_profile = SalaryProfile(
+        base_salary=monthly_salary,
+        annual_growth_rate=0.00
+    )
+
+    # 创建经济因素
+    economic_factors = EconomicFactors(
+        inflation_rate=0.03,
+        investment_return_rate=0.07,
+        social_security_return_rate=0.05,
+        base_currency="CNY",
+        display_currency="EUR"
+    )
+
+    # 获取德国计算器
+    de_calculator = engine.calculators['DE']
+
+    print(f"\n🏦 正在计算德国养老金...")
+
+    # 计算德国养老金
+    result = de_calculator.calculate_pension(person, salary_profile, economic_factors)
+
+    # 显示基本信息
+    print(f"\n📊 养老金计算结果:")
+    print("-" * 50)
+    print(f"月退休金: {converter.format_amount(result.monthly_pension, 'EUR')}")
+    print(f"总缴费: {converter.format_amount(result.total_contribution, 'EUR')}")
+    print(f"总收益: {converter.format_amount(result.total_benefit, 'EUR')}")
+    print(f"投资回报率: {result.roi:.1%}")
+    print(f"回本年龄: {result.break_even_age}岁" if result.break_even_age else "回本年龄: 无法计算")
+
+    # 显示缴费率信息
+    contribution_rates = de_calculator.contribution_rates
+    print(f"\n💰 缴费率信息:")
+    print("-" * 50)
+    print(f"总缴费率: {contribution_rates['total']:.1%}")
+    print(f"员工缴费率: {contribution_rates['employee']:.1%}")
+    print(f"雇主缴费率: {contribution_rates['employer']:.1%}")
+
+    # 计算替代率
+    annual_salary_eur = monthly_salary * 0.13 * 12  # 转换为欧元年工资
+    replacement_rate = (result.monthly_pension * 12) / annual_salary_eur * 100
+
+    print(f"\n📋 总结:")
+    print("-" * 50)
+    print(f"年工资: {converter.format_amount(monthly_salary * 12, 'CNY')} (¥)")
+    print(f"年工资: {converter.format_amount(annual_salary_eur, 'EUR')} (€)")
+    print(f"退休后年养老金: {converter.format_amount(result.monthly_pension * 12, 'EUR')}")
+    print(f"替代率: {replacement_rate:.1f}%")
+
+def analyze_taiwan_only(engine: PensionEngine, scenario_name: str, monthly_salary: float):
+    """只分析台湾养老金"""
+    print(f"\n{'='*80}")
+    print(f"🇹🇼 台湾养老金分析 - {scenario_name}")
+    print(f"月薪: {converter.format_amount(monthly_salary, 'CNY')}")
+    print(f"工作年限: 30年")
+    print(f"退休年龄: 65岁")
+    print(f"领取年限: 20年")
+    print(f"{'='*80}")
+
+    # 创建个人信息
+    person = Person(
+        name="测试用户",
+        birth_date=date(1990, 1, 1),
+        gender=Gender.MALE,
+        employment_type=EmploymentType.EMPLOYEE,
+        start_work_date=date(1995, 7, 1)
+    )
+
+    # 创建工资档案 - 工资不增长
+    salary_profile = SalaryProfile(
+        base_salary=monthly_salary,
+        annual_growth_rate=0.00
+    )
+
+    # 创建经济因素
+    economic_factors = EconomicFactors(
+        inflation_rate=0.03,
+        investment_return_rate=0.07,
+        social_security_return_rate=0.05,
+        base_currency="CNY",
+        display_currency="TWD"
+    )
+
+    # 获取台湾计算器
+    tw_calculator = engine.calculators['TW']
+
+    print(f"\n🏦 正在计算台湾养老金...")
+
+    # 计算台湾养老金
+    result = tw_calculator.calculate_pension(person, salary_profile, economic_factors)
+
+    # 显示基本信息
+    print(f"\n📊 养老金计算结果:")
+    print("-" * 50)
+    print(f"月退休金: {converter.format_amount(result.monthly_pension, 'TWD')}")
+    print(f"总缴费: {converter.format_amount(result.total_contribution, 'TWD')}")
+    print(f"总收益: {converter.format_amount(result.total_benefit, 'TWD')}")
+    print(f"投资回报率: {result.roi:.1%}")
+    print(f"回本年龄: {result.break_even_age}岁" if result.break_even_age else "回本年龄: 无法计算")
+
+    # 显示缴费率信息
+    contribution_rates = tw_calculator.contribution_rates
+    print(f"\n💰 缴费率信息:")
+    print("-" * 50)
+    print(f"总缴费率: {contribution_rates['total']:.1%}")
+    print(f"员工缴费率: {contribution_rates['employee']:.1%}")
+    print(f"雇主缴费率: {contribution_rates['employer']:.1%}")
+
+    # 计算替代率
+    annual_salary_twd = monthly_salary * 4.3 * 12  # 转换为新台币年工资
+    replacement_rate = (result.monthly_pension * 12) / annual_salary_twd * 100
+
+    print(f"\n📋 总结:")
+    print("-" * 50)
+    print(f"年工资: {converter.format_amount(monthly_salary * 12, 'CNY')} (¥)")
+    print(f"年工资: {converter.format_amount(annual_salary_twd, 'TWD')} (NT$)")
+    print(f"退休后年养老金: {converter.format_amount(result.monthly_pension * 12, 'TWD')}")
+    print(f"替代率: {replacement_rate:.1f}%")
+
+def analyze_japan_only(engine: PensionEngine, scenario_name: str, monthly_salary: float):
+    """只分析日本养老金"""
+    print(f"\n{'='*80}")
+    print(f"🇯🇵 日本养老金分析 - {scenario_name}")
+    print(f"月薪: {converter.format_amount(monthly_salary, 'CNY')}")
+    print(f"工作年限: 30年")
+    print(f"退休年龄: 65岁")
+    print(f"领取年限: 20年")
+    print(f"{'='*80}")
+
+    # 创建个人信息
+    person = Person(
+        name="测试用户",
+        birth_date=date(1990, 1, 1),
+        gender=Gender.MALE,
+        employment_type=EmploymentType.EMPLOYEE,
+        start_work_date=date(1995, 7, 1)
+    )
+
+    # 创建工资档案 - 工资不增长
+    salary_profile = SalaryProfile(
+        base_salary=monthly_salary,
+        annual_growth_rate=0.00
+    )
+
+    # 创建经济因素
+    economic_factors = EconomicFactors(
+        inflation_rate=0.03,
+        investment_return_rate=0.07,
+        social_security_return_rate=0.05,
+        base_currency="CNY",
+        display_currency="JPY"
+    )
+
+    # 获取日本计算器
+    jp_calculator = engine.calculators['JP']
+
+    print(f"\n🏦 正在计算日本养老金...")
+
+    # 计算日本养老金
+    result = jp_calculator.calculate_pension(person, salary_profile, economic_factors)
+
+    # 显示基本信息
+    print(f"\n📊 养老金计算结果:")
+    print("-" * 50)
+    print(f"月退休金: {converter.format_amount(result.monthly_pension, 'JPY')}")
+    print(f"总缴费: {converter.format_amount(result.total_contribution, 'JPY')}")
+    print(f"总收益: {converter.format_amount(result.total_benefit, 'JPY')}")
+    print(f"投资回报率: {result.roi:.1%}")
+    print(f"回本年龄: {result.break_even_age}岁" if result.break_even_age else "回本年龄: 无法计算")
+
+    # 显示缴费率信息
+    contribution_rates = jp_calculator.contribution_rates
+    print(f"\n💰 缴费率信息:")
+    print("-" * 50)
+    print(f"总缴费率: {contribution_rates['total']:.1%}")
+    print(f"员工缴费率: {contribution_rates['employee']:.1%}")
+    print(f"雇主缴费率: {contribution_rates['employer']:.1%}")
+
+    # 计算替代率
+    annual_salary_jpy = monthly_salary * 20 * 12  # 转换为日元年工资
+    replacement_rate = (result.monthly_pension * 12) / annual_salary_jpy * 100
+
+    print(f"\n📋 总结:")
+    print("-" * 50)
+    print(f"年工资: {converter.format_amount(monthly_salary * 12, 'CNY')} (¥)")
+    print(f"年工资: {converter.format_amount(annual_salary_jpy, 'JPY')} (¥)")
+    print(f"退休后年养老金: {converter.format_amount(result.monthly_pension * 12, 'JPY')}")
+    print(f"替代率: {replacement_rate:.1f}%")
+
+def analyze_uk_only(engine: PensionEngine, scenario_name: str, monthly_salary: float):
+    """只分析英国养老金"""
+    print(f"\n{'='*80}")
+    print(f"🇬🇧 英国养老金分析 - {scenario_name}")
+    print(f"月薪: {converter.format_amount(monthly_salary, 'CNY')}")
+    print(f"工作年限: 30年")
+    print(f"退休年龄: 68岁")
+    print(f"领取年限: 20年")
+    print(f"{'='*80}")
+
+    # 创建个人信息
+    person = Person(
+        name="测试用户",
+        birth_date=date(1990, 1, 1),
+        gender=Gender.MALE,
+        employment_type=EmploymentType.EMPLOYEE,
+        start_work_date=date(1995, 7, 1)
+    )
+
+    # 创建工资档案 - 工资不增长
+    salary_profile = SalaryProfile(
+        base_salary=monthly_salary,
+        annual_growth_rate=0.00
+    )
+
+    # 创建经济因素
+    economic_factors = EconomicFactors(
+        inflation_rate=0.03,
+        investment_return_rate=0.07,
+        social_security_return_rate=0.05,
+        base_currency="CNY",
+        display_currency="GBP"
+    )
+
+    # 获取英国计算器
+    uk_calculator = engine.calculators['UK']
+
+    print(f"\n🏦 正在计算英国养老金...")
+
+    # 计算英国养老金
+    result = uk_calculator.calculate_pension(person, salary_profile, economic_factors)
+
+    # 显示基本信息
+    print(f"\n📊 养老金计算结果:")
+    print("-" * 50)
+    print(f"月退休金: {converter.format_amount(result.monthly_pension, 'GBP')}")
+    print(f"总缴费: {converter.format_amount(result.total_contribution, 'GBP')}")
+    print(f"总收益: {converter.format_amount(result.total_benefit, 'GBP')}")
+    print(f"投资回报率: {result.roi:.1%}")
+    print(f"回本年龄: {result.break_even_age}岁" if result.break_even_age else "回本年龄: 无法计算")
+
+    # 显示缴费率信息
+    contribution_rates = uk_calculator.contribution_rates
+    print(f"\n💰 缴费率信息:")
+    print("-" * 50)
+    print(f"总缴费率: {contribution_rates['total']:.1%}")
+    print(f"员工缴费率: {contribution_rates['employee']:.1%}")
+    print(f"雇主缴费率: {contribution_rates['employer']:.1%}")
+
+    # 计算替代率
+    annual_salary_gbp = monthly_salary * 0.11 * 12  # 转换为英镑年工资
+    replacement_rate = (result.monthly_pension * 12) / annual_salary_gbp * 100
+
+    print(f"\n📋 总结:")
+    print("-" * 50)
+    print(f"年工资: {converter.format_amount(monthly_salary * 12, 'CNY')} (¥)")
+    print(f"年工资: {converter.format_amount(annual_salary_gbp, 'GBP')} (£)")
+    print(f"退休后年养老金: {converter.format_amount(result.monthly_pension * 12, 'GBP')}")
+    print(f"替代率: {replacement_rate:.1f}%")
+
+def analyze_australia_only(engine: PensionEngine, scenario_name: str, monthly_salary: float):
+    """只分析澳大利亚养老金"""
+    # 创建个人信息
+    person = Person(
+        name="测试用户",
+        birth_date=date(1990, 1, 1),
+        gender=Gender.MALE,
+        employment_type=EmploymentType.EMPLOYEE,
+        start_work_date=date(1995, 7, 1)
+    )
+
+    # 获取澳大利亚计算器
+    au_calculator = engine.calculators['AU']
+    
+    # 获取实际退休年龄和工作年限
+    retirement_age = au_calculator.get_retirement_age(person)
+    start_work_age = 30  # 固定30岁开始工作
+    work_years = retirement_age - start_work_age
+    
+    print(f"\n{'='*80}")
+    print(f"🇦🇺 澳大利亚养老金分析 - {scenario_name}")
+    print(f"月薪: {converter.format_amount(monthly_salary, 'CNY')}")
+    print(f"工作年限: {work_years}年")
+    print(f"退休年龄: {retirement_age}岁")
+    print(f"预期寿命: 85岁 (预计领取{85-retirement_age}年)")
+    print(f"{'='*80}")
+
+    # 创建工资档案 - 工资每年增长2%
+    salary_profile = SalaryProfile(
+        base_salary=monthly_salary,
+        annual_growth_rate=0.02
+    )
+
+    # 创建经济因素
+    economic_factors = EconomicFactors(
+        inflation_rate=0.03,
+        investment_return_rate=0.07,
+        social_security_return_rate=0.05,
+        base_currency="CNY",
+        display_currency="AUD"
+    )
+
+    print(f"\n🏦 正在计算澳大利亚养老金...")
+
+    # 计算澳大利亚养老金
+    result = au_calculator.calculate_pension(person, salary_profile, economic_factors)
+
+    # 显示基本信息
+    print(f"\n📊 养老金计算结果:")
+    print("-" * 50)
+    print(f"月退休金: {converter.format_amount(result.monthly_pension, 'AUD')}")
+    print(f"总缴费: {converter.format_amount(result.total_contribution, 'AUD')}")
+    print(f"总收益: {converter.format_amount(result.total_benefit, 'AUD')}")
+    print(f"投资回报率: {result.roi:.1%}")
+    print(f"回本年龄: {result.break_even_age}岁" if result.break_even_age else "回本年龄: 无法计算")
+
+    # 显示缴费率信息
+    contribution_rates = au_calculator.contribution_rates
+    print(f"\n💰 缴费率信息:")
+    print("-" * 50)
+    print(f"总缴费率: {contribution_rates['total']:.1%}")
+    print(f"员工缴费率: {contribution_rates['employee']:.1%}")
+    print(f"雇主缴费率: {contribution_rates['employer']:.1%}")
+
+    # 使用计算器内部计算的替代率
+    replacement_rate = result.details.get('replacement_rate', 0) * 100
+    last_year_salary = result.details.get('last_year_salary', 0)
+
+    print(f"\n📋 总结:")
+    print("-" * 50)
+    print(f"初始年工资: {converter.format_amount(monthly_salary * 12, 'CNY')} (¥)")
+    print(f"初始年工资: {converter.format_amount(monthly_salary * 0.21 * 12, 'AUD')} (A$)")
+    print(f"最后一年工资: {converter.format_amount(last_year_salary, 'AUD')} (A$)")
+    print(f"退休后年养老金: {converter.format_amount(result.monthly_pension * 12, 'AUD')}")
+    print(f"替代率: {replacement_rate:.1f}%")
+
+def analyze_canada_only(engine: PensionEngine, scenario_name: str, monthly_salary: float):
+    """只分析加拿大养老金"""
+    print(f"\n{'='*80}")
+    print(f"🇨🇦 加拿大养老金分析 - {scenario_name}")
+    print(f"月薪: {converter.format_amount(monthly_salary, 'CNY')}")
+    print(f"工作年限: 30年")
+    print(f"退休年龄: 65岁")
+    print(f"领取年限: 20年")
+    print(f"{'='*80}")
+
+    # 创建个人信息
+    person = Person(
+        name="测试用户",
+        birth_date=date(1990, 1, 1),
+        gender=Gender.MALE,
+        employment_type=EmploymentType.EMPLOYEE,
+        start_work_date=date(1995, 7, 1)
+    )
+
+    # 创建工资档案 - 工资不增长
+    salary_profile = SalaryProfile(
+        base_salary=monthly_salary,
+        annual_growth_rate=0.00
+    )
+
+    # 创建经济因素
+    economic_factors = EconomicFactors(
+        inflation_rate=0.03,
+        investment_return_rate=0.07,
+        social_security_return_rate=0.05,
+        base_currency="CNY",
+        display_currency="CAD"
+    )
+
+    # 获取加拿大计算器
+    ca_calculator = engine.calculators['CA']
+
+    print(f"\n🏦 正在计算加拿大养老金...")
+
+    # 计算加拿大养老金
+    result = ca_calculator.calculate_pension(person, salary_profile, economic_factors)
+
+    # 显示基本信息
+    print(f"\n📊 养老金计算结果:")
+    print("-" * 50)
+    print(f"月退休金: {converter.format_amount(result.monthly_pension, 'CAD')}")
+    print(f"总缴费: {converter.format_amount(result.total_contribution, 'CAD')}")
+    print(f"总收益: {converter.format_amount(result.total_benefit, 'CAD')}")
+    print(f"投资回报率: {result.roi:.1%}")
+    print(f"回本年龄: {result.break_even_age}岁" if result.break_even_age else "回本年龄: 无法计算")
+
+    # 显示缴费率信息
+    contribution_rates = ca_calculator.contribution_rates
+    print(f"\n💰 缴费率信息:")
+    print("-" * 50)
+    print(f"总缴费率: {contribution_rates['total']:.1%}")
+    print(f"员工缴费率: {contribution_rates['employee']:.1%}")
+    print(f"雇主缴费率: {contribution_rates['employer']:.1%}")
+
+    # 计算替代率
+    annual_salary_cad = monthly_salary * 0.19 * 12  # 转换为加币年工资
+    replacement_rate = (result.monthly_pension * 12) / annual_salary_cad * 100
+
+    print(f"\n📋 总结:")
+    print("-" * 50)
+    print(f"年工资: {converter.format_amount(monthly_salary * 12, 'CNY')} (¥)")
+    print(f"年工资: {converter.format_amount(annual_salary_cad, 'CAD')} (C$)")
+    print(f"退休后年养老金: {converter.format_amount(result.monthly_pension * 12, 'CAD')}")
     print(f"替代率: {replacement_rate:.1f}%")
 
 def analyze_by_country(engine: PensionEngine, scenario_name: str, monthly_salary: float):
@@ -514,30 +1028,155 @@ def analyze_by_country(engine: PensionEngine, scenario_name: str, monthly_salary
 def main():
     """主函数"""
     # 检查命令行参数
-    usa_only = '--usa-only' in sys.argv
+    usa_only = '--usa-only' in sys.argv or '--us' in sys.argv
+    hk_only = '--hk-only' in sys.argv or '--hk' in sys.argv
+    sg_only = '--singapore-only' in sys.argv or '--sg' in sys.argv
+    cn_only = '--china-only' in sys.argv or '--cn' in sys.argv
+    de_only = '--germany-only' in sys.argv or '--de' in sys.argv
+    tw_only = '--taiwan-only' in sys.argv or '--tw' in sys.argv
+    jp_only = '--japan-only' in sys.argv or '--jp' in sys.argv
+    uk_only = '--uk-only' in sys.argv or '--uk' in sys.argv
+    au_only = '--australia-only' in sys.argv or '--au' in sys.argv
+    ca_only = '--canada-only' in sys.argv or '--ca' in sys.argv
 
+    # 创建计算引擎
+    engine = create_pension_engine()
+
+    # 定义两个场景
+    scenarios = [
+        ("高收入场景", 50000),  # 月薪5万人民币
+        ("低收入场景", 5000)    # 月薪5千人民币
+    ]
+
+    # 检查单一国家参数
     if usa_only:
         print("🇺🇸 === 美国养老金详细分析系统 ===")
         print("分析401K和Social Security的详细情况\n")
 
-        # 创建计算引擎
-        engine = create_pension_engine()
-
-        # 定义两个场景
-        scenarios = [
-            ("高收入场景", 50000),  # 月薪5万人民币
-            ("低收入场景", 5000)    # 月薪5千人民币
-        ]
-
-        # 分析每个场景
         for scenario_name, monthly_salary in scenarios:
             analyze_usa_only(engine, scenario_name, monthly_salary)
-
             print(f"\n{'='*80}")
             print(f"✅ {scenario_name}分析完成")
             print(f"{'='*80}")
 
         print(f"\n🎯 美国养老金分析完成！")
+        return
+
+    elif hk_only:
+        print("🇭🇰 === 香港MPF详细分析系统 ===")
+        print("分析强积金计划的详细情况\n")
+
+        for scenario_name, monthly_salary in scenarios:
+            analyze_hk_only(engine, scenario_name, monthly_salary)
+            print(f"\n{'='*80}")
+            print(f"✅ {scenario_name}分析完成")
+            print(f"{'='*80}")
+
+        print(f"\n🎯 香港MPF分析完成！")
+        return
+
+    elif sg_only:
+        print("🇸🇬 === 新加坡CPF详细分析系统 ===")
+        print("分析中央公积金计划的详细情况\n")
+
+        for scenario_name, monthly_salary in scenarios:
+            analyze_singapore_only(engine, scenario_name, monthly_salary)
+            print(f"\n{'='*80}")
+            print(f"✅ {scenario_name}分析完成")
+            print(f"{'='*80}")
+
+        print(f"\n🎯 新加坡CPF分析完成！")
+        return
+
+    elif cn_only:
+        print("🇨🇳 === 中国养老金详细分析系统 ===")
+        print("分析基本养老保险的详细情况\n")
+
+        for scenario_name, monthly_salary in scenarios:
+            analyze_china_only(engine, scenario_name, monthly_salary)
+            print(f"\n{'='*80}")
+            print(f"✅ {scenario_name}分析完成")
+            print(f"{'='*80}")
+
+        print(f"\n🎯 中国养老金分析完成！")
+        return
+
+    elif de_only:
+        print("🇩🇪 === 德国养老金详细分析系统 ===")
+        print("分析法定养老保险的详细情况\n")
+
+        for scenario_name, monthly_salary in scenarios:
+            analyze_germany_only(engine, scenario_name, monthly_salary)
+            print(f"\n{'='*80}")
+            print(f"✅ {scenario_name}分析完成")
+            print(f"{'='*80}")
+
+        print(f"\n🎯 德国养老金分析完成！")
+        return
+
+    elif tw_only:
+        print("🇹🇼 === 台湾养老金详细分析系统 ===")
+        print("分析劳保年金的详细情况\n")
+
+        for scenario_name, monthly_salary in scenarios:
+            analyze_taiwan_only(engine, scenario_name, monthly_salary)
+            print(f"\n{'='*80}")
+            print(f"✅ {scenario_name}分析完成")
+            print(f"{'='*80}")
+
+        print(f"\n🎯 台湾养老金分析完成！")
+        return
+
+    elif jp_only:
+        print("🇯🇵 === 日本养老金详细分析系统 ===")
+        print("分析厚生年金的详细情况\n")
+
+        for scenario_name, monthly_salary in scenarios:
+            analyze_japan_only(engine, scenario_name, monthly_salary)
+            print(f"\n{'='*80}")
+            print(f"✅ {scenario_name}分析完成")
+            print(f"{'='*80}")
+
+        print(f"\n🎯 日本养老金分析完成！")
+        return
+
+    elif uk_only:
+        print("🇬🇧 === 英国养老金详细分析系统 ===")
+        print("分析国家养老金的详细情况\n")
+
+        for scenario_name, monthly_salary in scenarios:
+            analyze_uk_only(engine, scenario_name, monthly_salary)
+            print(f"\n{'='*80}")
+            print(f"✅ {scenario_name}分析完成")
+            print(f"{'='*80}")
+
+        print(f"\n🎯 英国养老金分析完成！")
+        return
+
+    elif au_only:
+        print("🇦🇺 === 澳大利亚养老金详细分析系统 ===")
+        print("分析超级年金的详细情况\n")
+
+        for scenario_name, monthly_salary in scenarios:
+            analyze_australia_only(engine, scenario_name, monthly_salary)
+            print(f"\n{'='*80}")
+            print(f"✅ {scenario_name}分析完成")
+            print(f"{'='*80}")
+
+        print(f"\n🎯 澳大利亚养老金分析完成！")
+        return
+
+    elif ca_only:
+        print("🇨🇦 === 加拿大养老金详细分析系统 ===")
+        print("分析CPP和OAS的详细情况\n")
+
+        for scenario_name, monthly_salary in scenarios:
+            analyze_canada_only(engine, scenario_name, monthly_salary)
+            print(f"\n{'='*80}")
+            print(f"✅ {scenario_name}分析完成")
+            print(f"{'='*80}")
+
+        print(f"\n🎯 加拿大养老金分析完成！")
         return
 
     # 原有的多国对比功能
@@ -546,19 +1185,18 @@ def main():
     print("- 月薪5万人民币，工作30年，按各国实际退休年龄，领取20年")
     print("- 月薪5千人民币，工作30年，按各国实际退休年龄，领取20年")
     print("\n使用以下参数可以只分析特定国家:")
-    print("  --usa-only 或 --us-only     分析美国养老金")
-    print("  --singapore-only 或 --sg-only 分析新加坡CPF")
-    print("  --hk-only 或 --hk-only     分析香港MPF")
+    print("  --us 或 --usa-only     分析美国养老金")
+    print("  --hk 或 --hk-only     分析香港MPF")
+    print("  --sg 或 --sg-only     分析新加坡CPF")
+    print("  --cn 或 --china-only  分析中国养老金")
+    print("  --de 或 --de-only     分析德国养老金")
+    print("  --tw 或 --tw-only     分析台湾养老金")
+    print("  --jp 或 --jp-only     分析日本养老金")
+    print("  --uk 或 --uk-only     分析英国养老金")
+    print("  --au 或 --au-only     分析澳大利亚养老金")
+    print("  --ca 或 --ca-only     分析加拿大养老金")
 
-    # 创建计算引擎
-    engine = create_pension_engine()
     print(f"已注册 {len(engine.get_available_countries())} 个国家/地区的计算器")
-
-    # 定义两个场景
-    scenarios = [
-        ("高收入场景", 50000),  # 月薪5万人民币
-        ("低收入场景", 5000)    # 月薪5千人民币
-    ]
 
     # 分析每个场景
     all_results = []
@@ -592,52 +1230,26 @@ def main():
     print(f"\n✅ 分析完成！")
     print(f"共分析了 {len(scenarios)} 个场景，{len(engine.get_available_countries())} 个国家/地区")
 
-    # 检查是否有特殊参数
-    if len(sys.argv) > 1:
-        if sys.argv[1] in ['--usa-only', '--us-only']:
-            print(f"\n{'='*80}")
-            print("🇺🇸 美国养老金详细分析...")
-            for scenario_name, monthly_salary in scenarios:
-                analyze_usa_only(engine, scenario_name, monthly_salary)
-            print(f"\n{'='*80}")
-            print("✅ 美国养老金分析完成！")
-            return
-        elif sys.argv[1] in ['--singapore-only', '--sg-only']:
-            print(f"\n{'='*80}")
-            print("🇸🇬 新加坡CPF详细分析...")
-            for scenario_name, monthly_salary in scenarios:
-                analyze_singapore_only(engine, scenario_name, monthly_salary)
-            print(f"\n{'='*80}")
-            print("✅ 新加坡CPF分析完成！")
-            return
-        elif sys.argv[1] in ['--hk-only', '--hk-only']:
-            print(f"\n{'='*80}")
-            print("🇭🇰 香港MPF详细分析...")
-            for scenario_name, monthly_salary in scenarios:
-                analyze_hk_only(engine, scenario_name, monthly_salary)
-            print(f"\n{'='*80}")
-            print("✅ 香港MPF分析完成！")
-            return
-        else:
-            print(f"未知参数: {sys.argv[1]}")
-            print("可用参数:")
-            print("  --usa-only 或 --us-only     分析美国养老金")
-            print("  --singapore-only 或 --sg-only 分析新加坡CPF")
-            print("  --hk-only 或 --hk-only     分析香港MPF")
-            return
-    else:
-        # 默认显示所有国家的详细信息
-        print(f"\n{'='*80}")
-        print("🌍 开始按国家分别输出详细信息...")
+    # 默认显示所有国家的详细信息
+    print(f"\n{'='*80}")
+    print("🌍 开始按国家分别输出详细信息...")
 
-        for scenario_name, monthly_salary in scenarios:
-            analyze_by_country(engine, scenario_name, monthly_salary)
+    for scenario_name, monthly_salary in scenarios:
+        analyze_by_country(engine, scenario_name, monthly_salary)
 
-        print(f"\n{'='*80}")
-        print("✅ 按国家分别输出完成！")
-        print(f"如需单独分析，请使用参数：")
-        print(f"  --usa-only     分析美国养老金")
-        print(f"  --singapore-only 分析新加坡CPF")
+    print(f"\n{'='*80}")
+    print("✅ 按国家分别输出完成！")
+    print(f"如需单独分析，请使用参数：")
+    print(f"  --us     分析美国养老金")
+    print(f"  --hk     分析香港MPF")
+    print(f"  --sg     分析新加坡CPF")
+    print(f"  --cn     分析中国养老金")
+    print(f"  --de     分析德国养老金")
+    print(f"  --tw     分析台湾养老金")
+    print(f"  --jp     分析日本养老金")
+    print(f"  --uk     分析英国养老金")
+    print(f"  --au     分析澳大利亚养老金")
+    print(f"  --ca     分析加拿大养老金")
 
 if __name__ == "__main__":
     main()

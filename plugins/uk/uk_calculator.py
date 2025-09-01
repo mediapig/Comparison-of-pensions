@@ -98,15 +98,19 @@ class UKPensionCalculator(BasePensionCalculator):
             age = current_age + year
             salary = salary_profile.get_salary_at_age(age, person.age)
 
+            # 将人民币月薪转换为英镑
+            cny_to_gbp_rate = 0.11  # 1 CNY = 0.11 GBP (2025年参考汇率)
+            salary_gbp = salary * cny_to_gbp_rate
+
             # 英国国民保险有缴费上下限（2024年约为12,570-50,270英镑）
             ni_threshold = 12570
             ni_upper_limit = 50270
 
             # 计算应税收入
-            if salary * 12 <= ni_threshold:
+            if salary_gbp * 12 <= ni_threshold:
                 taxable_income = 0
-            elif salary * 12 <= ni_upper_limit:
-                taxable_income = (salary * 12) - ni_threshold
+            elif salary_gbp * 12 <= ni_upper_limit:
+                taxable_income = (salary_gbp * 12) - ni_threshold
             else:
                 taxable_income = ni_upper_limit - ni_threshold
 

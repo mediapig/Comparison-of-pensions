@@ -20,7 +20,9 @@ class TaiwanPensionCalculator(BasePensionCalculator):
     def _get_contribution_rates(self) -> Dict[str, float]:
         """获取台湾缴费比例"""
         return {
-            "employee": 0.20,        # 20% 总缴费比例（个人+雇主+政府）
+            "employee": 0.07,        # 7% 个人缴费比例
+            "employer": 0.13,        # 13% 雇主缴费比例
+            "total": 0.20,           # 20% 总缴费比例（个人+雇主）
             "civil_servant": 0.20,   # 公务员缴费比例
             "self_employed": 0.20,   # 自雇人士缴费比例
             "farmer": 0.20           # 农民缴费比例
@@ -98,10 +100,14 @@ class TaiwanPensionCalculator(BasePensionCalculator):
             age = current_age + year
             salary = salary_profile.get_salary_at_age(age, person.age)
 
+            # 将人民币月薪转换为新台币
+            cny_to_twd_rate = 4.35  # 1 CNY = 4.35 TWD (2025年参考汇率)
+            salary_twd = salary * cny_to_twd_rate
+
             # 台湾劳保有投保薪资上下限（2024年约为25,250-45,800新台币）
             min_insured_salary = 25250
             max_insured_salary = 45800
-            insured_salary = min(max(salary, min_insured_salary), max_insured_salary)
+            insured_salary = min(max(salary_twd, min_insured_salary), max_insured_salary)
 
             # 总缴费（20%）
             total_contribution = insured_salary * 0.20 * 12

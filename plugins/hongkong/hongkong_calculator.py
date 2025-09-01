@@ -99,15 +99,19 @@ class HongKongPensionCalculator(BasePensionCalculator):
             age = current_age + year
             salary = salary_profile.get_salary_at_age(age, person.age)
 
+            # 将人民币月薪转换为港币
+            cny_to_hkd_rate = 1.09  # 1 CNY = 1.09 HKD (2025年参考汇率)
+            salary_hkd = salary * cny_to_hkd_rate
+
             # 香港强积金有缴费上下限（2024年约为7,100-30,000港币）
             min_contribution = 7100
             max_contribution = 30000
 
             # 个人缴费（5%）
-            personal_contribution = min(max(salary * 0.05, min_contribution), max_contribution)
+            personal_contribution = min(max(salary_hkd * 0.05, min_contribution), max_contribution)
 
             # 雇主缴费（5%）
-            employer_contribution = min(max(salary * 0.05, min_contribution), max_contribution)
+            employer_contribution = min(max(salary_hkd * 0.05, min_contribution), max_contribution)
 
             # 总缴费
             total_contribution = personal_contribution + employer_contribution
@@ -166,6 +170,7 @@ class HongKongPensionCalculator(BasePensionCalculator):
                 # 逐年累积
         for record in contribution_history:
             # 注意：record['salary'] 是月薪，需要转换为年薪
+            # record['salary'] 已经是港币，直接使用
             annual_salary = record['salary'] * 12
 
             # 入息上下限
