@@ -104,12 +104,16 @@ class JapanPensionCalculator(BasePensionCalculator):
             age = current_age + year
             salary = salary_profile.get_salary_at_age(age, person.age)
 
+            # 将人民币月薪转换为日元
+            cny_to_jpy_rate = 20.5  # 1 CNY = 20.5 JPY (2025年参考汇率)
+            salary_jpy = salary * cny_to_jpy_rate
+
             # 日本厚生年金有缴费上下限（2024年约为98,000-650,000日元）
             min_contribution = 98000
             max_contribution = 650000
 
             # 个人缴费（9.15%）
-            personal_contribution = min(max(salary * 0.0915, min_contribution * 0.0915),
+            personal_contribution = min(max(salary_jpy * 0.0915, min_contribution * 0.0915),
                                       max_contribution * 0.0915)
 
             # 雇主缴费（9.15%）

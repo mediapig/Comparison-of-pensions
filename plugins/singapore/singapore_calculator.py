@@ -31,11 +31,10 @@ class SingaporePensionCalculator(BasePensionCalculator):
                          salary_profile: SalaryProfile,
                          economic_factors: EconomicFactors) -> PensionResult:
         """计算新加坡中央公积金"""
+        # 固定从30岁开始工作，一直缴纳到退休
+        start_work_age = 30
         retirement_age = self.get_retirement_age(person)
-        work_years = retirement_age - person.age
-
-        if work_years <= 0:
-            work_years = person.work_years
+        work_years = retirement_age - start_work_age
 
         # 计算缴费历史
         contribution_history = self.calculate_contribution_history(
@@ -88,18 +87,17 @@ class SingaporePensionCalculator(BasePensionCalculator):
                                     salary_profile: SalaryProfile,
                                     economic_factors: EconomicFactors) -> List[Dict[str, Any]]:
         """计算缴费历史"""
+        # 固定从30岁开始工作，一直缴纳到退休
+        start_work_age = 30
         retirement_age = self.get_retirement_age(person)
-        work_years = retirement_age - person.age
-
-        if work_years <= 0:
-            work_years = person.work_years
+        work_years = retirement_age - start_work_age
 
         history = []
-        current_age = person.age
+        # 使用固定的起始年龄30岁
 
         for year in range(work_years):
-            age = current_age + year
-            salary = salary_profile.get_salary_at_age(age, person.age)
+            age = start_work_age + year
+            salary = salary_profile.get_salary_at_age(age, start_work_age)
 
             # 新加坡CPF参数（2025年）
             # 注意：salary是人民币，需要转换为新币

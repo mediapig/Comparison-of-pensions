@@ -104,11 +104,15 @@ class CanadaPensionCalculator(BasePensionCalculator):
             age = current_age + year
             salary = salary_profile.get_salary_at_age(age, person.age)
 
+            # 将人民币月薪转换为加币
+            cny_to_cad_rate = 0.19  # 1 CNY = 0.19 CAD (2025年参考汇率)
+            salary_cad = salary * cny_to_cad_rate
+
             # 加拿大CPP有缴费上限（2024年约为66,600加币）
             cpp_ceiling = 66600
 
             # 应税工资
-            taxable_wage = min(salary * 12, cpp_ceiling)
+            taxable_wage = min(salary_cad * 12, cpp_ceiling)
 
             # 个人缴费（5.95%）
             personal_contribution = taxable_wage * 0.0595

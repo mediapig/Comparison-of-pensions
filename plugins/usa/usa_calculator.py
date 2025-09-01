@@ -105,7 +105,11 @@ class USAPensionCalculator(BasePensionCalculator):
         for year in range(work_years):
             age = current_age + year
             salary = salary_profile.get_salary_at_age(age, person.age)
-            annual_salary = salary * 12
+
+            # 将人民币月薪转换为美元（假设汇率1 CNY = 0.14 USD，2025年参考汇率）
+            cny_to_usd_rate = 0.14
+            salary_usd = salary * cny_to_usd_rate
+            annual_salary = salary_usd * 12
 
             # Social Security部分
             social_security_cap = 168600  # 2024年上限
@@ -118,7 +122,7 @@ class USAPensionCalculator(BasePensionCalculator):
             medicare_contribution = taxable_salary * 0.0145
 
             # 401K部分
-            k401_contribution_data = self._calculate_401k_contribution(salary, age, year)
+            k401_contribution_data = self._calculate_401k_contribution(salary_usd, age, year)
             k401_employee_contribution = k401_contribution_data['employee_contribution']
             k401_employer_match = k401_contribution_data['employer_match']
 
@@ -226,57 +230,68 @@ class USAPensionCalculator(BasePensionCalculator):
         return retirement_age + int(years_to_break_even)
 
     def _calculate_401k_contribution(self, salary: float, age: int, year: int) -> Dict[str, float]:
-        """计算401K缴费（按照用户提供的准确逻辑）"""
-        # 1) 员工递延 + 追补
-        emp_rate = 0.10  # 假设员工选择10%递延比例
-        deferral = min(salary * emp_rate, 23_500)  # 2025年基础上限
+        """计算401K缴费（按照2025年准确的上限规则）"""
+        # salary已经是美元月薪，直接计算年薪
+        annual_salary = salary * 12
+
+        # 1) 员工递延（402(g) + catch-ups）
+        deferral_cap = 23_500  # 2025年基础上限
 
         # 年龄相关的追补缴费
-        if 50 <= age <= 59 or age >= 64:
-            catchup = 7_500
-        elif 60 <= age <= 63:
-            catchup = 11_250  # 计划需支持
+        if 60 <= age <= 63:
+            catchup = 11_250  # super catch-up (plan dependent)
+        elif age >= 50:
+            catchup = 7_500   # 标准catch-up
         else:
             catchup = 0
 
-        # 员工总缴费（不挤占415(c) 70k上限）
-        employee_contrib = deferral + min(catchup, max(0, 70_000 - deferral))
+        # 计算员工实际缴费（考虑工资增长后的10%比例）
+        emp_rate = 0.10  # 假设员工选择10%递延比例
+        target_deferral = annual_salary * emp_rate
 
-        # 2) 雇主配比按"受限薪酬"计算
-        comp_for_match = min(salary, 350_000)  # 401(a)(17) cap, 2025
+        # 应用员工缴费上限
+        employee_deferral = min(target_deferral, deferral_cap) + min(catchup, max(0, 70_000 - deferral_cap))
+
+        # 2) 雇主配比（按 401(a)(17) 薪酬上限）
+        comp_for_match = min(annual_salary, 350_000)  # 2025年薪酬上限
 
         # 雇主配比公式：100% match 前3% + 50% match 接下2%
         match_rate = 0.0
-        if deferral > 0:
+        if employee_deferral > 0:
             # 前3%：100% match
-            match_rate += min(0.03, deferral / comp_for_match) * 1.0
+            first_3_percent = min(0.03, employee_deferral / comp_for_match) * 1.0
+            match_rate += first_3_percent
+
             # 接下2%：50% match
-            remaining_deferral = max(0, deferral - comp_for_match * 0.03)
+            remaining_deferral = max(0, employee_deferral - comp_for_match * 0.03)
             if remaining_deferral > 0:
-                match_rate += min(0.02, remaining_deferral / comp_for_match) * 0.5
+                next_2_percent = min(0.02, remaining_deferral / comp_for_match) * 0.5
+                match_rate += next_2_percent
 
         employer_match = comp_for_match * match_rate
 
-        # 3) 415(c) 总上限
-        total_contrib = min(employee_contrib + employer_match, 70_000)
+        # 3) 415(c) 年度总上限
+        # 注意：catch-up部分不计入70k上限
+        base_employee_contribution = min(employee_deferral, deferral_cap)
+        total = min(base_employee_contribution + employer_match, 70_000)
 
-        # 如果总缴费被70k截断，优先截雇主部分
-        if total_contrib < employee_contrib + employer_match:
-            excess = (employee_contrib + employer_match) - total_contrib
-            if excess <= employer_match:
-                employer_match -= excess
-            else:
-                # 如果雇主部分不够截，再截员工部分
-                employer_match = 0
-                employee_contrib = total_contrib
+        # 4) 若 total 被 70k 截断，优先截雇主部分（常见做法）
+        employer_match = max(0.0, total - base_employee_contribution)
+
+        # 最终计算
+        catchup_contributions = max(0, employee_deferral - deferral_cap)
+        total_contribution = base_employee_contribution + employer_match + catchup_contributions
+
 
         return {
-            'employee_contribution': employee_contrib,
+            'employee_contribution': employee_deferral,
             'employer_match': employer_match,
-            'total_contribution': total_contrib,
-            'deferral': deferral,
-            'catchup': catchup,
-            'match_rate': match_rate
+            'total_contribution': total_contribution,
+            'base_deferral': base_employee_contribution,
+            'catchup_contribution': catchup_contributions,
+            'catchup_limit': catchup,
+            'compensation_cap': 350_000,
+            'overall_limit': 70_000
         }
 
     def _calculate_401k_balance(self, contribution_history: List[Dict[str, Any]], economic_factors: EconomicFactors) -> float:
@@ -342,9 +357,13 @@ class USAPensionCalculator(BasePensionCalculator):
         age_60_plus = person.age + 25  # 假设25年后达到60岁
 
         # 分析雇主配比
-        sample_salary = salary_profile.base_salary * 12
-        sample_employee_contribution = self._calculate_401k_contribution(sample_salary, person.age, 0)['employee_contribution']
-        sample_employer_match = self._calculate_401k_contribution(sample_salary, person.age, 0)['employer_match']
+        # 将人民币月薪转换为美元
+        cny_to_usd_rate = 0.14
+        sample_salary_usd = salary_profile.base_salary * cny_to_usd_rate
+        sample_salary = sample_salary_usd * 12
+        sample_401k_data = self._calculate_401k_contribution(sample_salary_usd, person.age, 0)
+        sample_employee_contribution = sample_401k_data['employee_contribution']
+        sample_employer_match = sample_401k_data['employer_match']
 
         return {
             'contribution_history': contribution_history,
@@ -366,6 +385,13 @@ class USAPensionCalculator(BasePensionCalculator):
                 'employee_contribution': sample_employee_contribution,
                 'employer_match': sample_employer_match,
                 'total_401k': sample_employee_contribution + sample_employer_match
+            },
+            'limits_info': {
+                'base_deferral_limit': 23500,
+                'age_50_catchup': 7500,
+                'age_60_63_catchup': 11250,
+                'compensation_cap': 350000,
+                'overall_limit': 70000
             }
         }
 
