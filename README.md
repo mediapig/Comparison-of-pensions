@@ -109,10 +109,6 @@ inflation_analysis = engine.sensitivity_analysis(
 - 基于AIME和PIA的计算方法
 - 考虑提前退休的减少
 
-### 德国 (DE)
-- 俾斯麦模式，现收现付制
-- 基于退休金点数的计算
-- 考虑提前/延迟退休的调整
 
 ### 台湾 (TW)
 - 劳保年金制度
