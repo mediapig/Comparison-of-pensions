@@ -102,9 +102,13 @@ class GermanyPensionCalculator(BasePensionCalculator):
             age = current_age + year
             salary = salary_profile.get_salary_at_age(age, person.age)
 
+            # 将人民币月薪转换为欧元
+            cny_to_eur_rate = 0.13  # 1 CNY = 0.13 EUR (2025年参考汇率)
+            salary_eur = salary * cny_to_eur_rate
+
             # 德国有缴费上限（2024年约为87,600欧元）
             contribution_ceiling = 87600
-            taxable_salary = min(salary * 12, contribution_ceiling)
+            taxable_salary = min(salary_eur * 12, contribution_ceiling)
 
             # 个人缴费（9.3%）
             personal_contribution = taxable_salary * 0.093
