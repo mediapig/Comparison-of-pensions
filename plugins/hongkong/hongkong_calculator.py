@@ -51,13 +51,14 @@ class HongKongPensionCalculator(BasePensionCalculator):
         # 计算总缴费
         total_contribution = mpf_result['total_contrib']
 
+        # 使用MPF账户的投资收益计算
+        total_return = mpf_result['total_return']
+        roi = mpf_result['roi_pct']
+
         # 计算总收益（假设活到85岁）
         life_expectancy = 85
         retirement_years = life_expectancy - retirement_age
         total_benefit = monthly_pension * 12 * retirement_years
-
-        # 计算ROI
-        roi = (total_benefit - total_contribution) / total_contribution if total_contribution > 0 else 0
 
         # 计算回本年龄
         break_even_age = self._calculate_break_even_age(
@@ -76,6 +77,8 @@ class HongKongPensionCalculator(BasePensionCalculator):
                 'employee_contrib': mpf_result['employee_contrib'],
                 'employer_contrib': mpf_result['employer_contrib'],
                 'total_contrib': mpf_result['total_contrib'],
+                'total_return': total_return,
+                'roi_pct': roi,
                 'work_years': work_years,
                 'retirement_age': retirement_age
             }
@@ -103,25 +106,30 @@ class HongKongPensionCalculator(BasePensionCalculator):
             cny_to_hkd_rate = 1.09  # 1 CNY = 1.09 HKD (2025年参考汇率)
             salary_hkd = salary * cny_to_hkd_rate
 
-            # 香港强积金有缴费上下限（2024年约为7,100-30,000港币）
-            min_contribution = 7100
-            max_contribution = 30000
-
-            # 个人缴费（5%）
-            personal_contribution = min(max(salary_hkd * 0.05, min_contribution), max_contribution)
-
-            # 雇主缴费（5%）
-            employer_contribution = min(max(salary_hkd * 0.05, min_contribution), max_contribution)
-
+            # 香港强积金参数
+            min_income = 7100.0  # HK$/月
+            max_income = 30000.0  # HK$/月
+            emp_rate = 0.05  # 雇员 5%
+            er_rate = 0.05   # 雇主 5%
+            
+            # 工资上下限约束
+            income = max(min_income, min(salary_hkd, max_income))
+            
+            # 个人缴费（月薪低于下限时不缴费）
+            emp_contrib = income * emp_rate if salary_hkd >= min_income else 0.0
+            
+            # 雇主缴费（总是缴费）
+            er_contrib = income * er_rate
+            
             # 总缴费
-            total_contribution = personal_contribution + employer_contribution
+            total_contribution = emp_contrib + er_contrib
 
             history.append({
                 'age': age,
                 'year': person.start_work_date.year + year,
-                'salary': salary,
-                'personal_contribution': personal_contribution * 12,
-                'employer_contribution': employer_contribution * 12,
+                'salary': salary_hkd,  # 保存港币月薪
+                'personal_contribution': emp_contrib * 12,
+                'employer_contribution': er_contrib * 12,
                 'total_contribution': total_contribution * 12
             })
 
@@ -152,58 +160,88 @@ class HongKongPensionCalculator(BasePensionCalculator):
                                 economic_factors: EconomicFactors) -> Dict[str, float]:
         """计算香港MPF退休金（按照用户提供的准确逻辑）"""
         if not contribution_history:
-            return {'MPF_balance': 0, 'MPF_monthly_pension': 0}
+            return {'MPF_balance': 0, 'MPF_monthly_pension': 0, 'employee_contrib': 0, 'employer_contrib': 0, 'total_contrib': 0}
 
         # MPF参数
-        return_rate = 0.05      # 投资回报率 5%
-        retire_return = 0.03    # 退休期实际收益率 3%
-        retire_years = 20       # 退休领取年数（按用户要求）
-        min_income = 7100 * 12  # 入息下限 (年化)
-        max_income = 30000 * 12 # 入息上限 (年化)
-        er_rate = 0.05          # 雇主供款率 5%
-        emp_rate = 0.05         # 员工供款率 5%
+        annual_return = 0.04      # 投资年化收益率 4%
+        wage_growth = 0.02        # 工资年增长 2%
+        retire_return = 0.03      # 退休期折现率 3%
+        retire_years = 20         # 退休后领取年限
+        min_income = 7100.0       # HK$/月
+        max_income = 30000.0      # HK$/月
+        emp_rate = 0.05           # 雇员 5%
+        er_rate = 0.05            # 雇主 5%
+        start_age = 30            # 开始工作年龄
+        retire_age = 65           # 退休年龄
 
         # 初始化
-        balances = 0.0
-        total_emp, total_er = 0.0, 0.0
-
-                # 逐年累积
-        for record in contribution_history:
-            # 注意：record['salary'] 是月薪，需要转换为年薪
-            # record['salary'] 已经是港币，直接使用
-            annual_salary = record['salary'] * 12
-
-            # 入息上下限
-            income_for_mpf = max(min(annual_salary, max_income), min_income)
-
-            # 缴费
-            emp_contrib = income_for_mpf * emp_rate
-            er_contrib = income_for_mpf * er_rate
-            total = emp_contrib + er_contrib
-
-            # 累积
-            balances = balances * (1 + return_rate) + total
-            total_emp += emp_contrib
-            total_er += er_contrib
-
-        # 退休时账户余额
-        final_balance = balances
-
-        # 折算为退休期月养老金（定期年金）
-        i = retire_return / 12
+        balance = 0.0
+        total_contrib = 0.0
+        
+        # 获取初始月薪
+        initial_salary = contribution_history[0]['salary']
+        current_salary = initial_salary
+        
+        # 计算工作年数
+        years = retire_age - start_age     # 30→65 应为 35
+        months = years * 12
+        for year_idx in range(years):
+            for month in range(12):
+                # 员工缴费：工资 < min_income → 0；否则按 min(工资, max_income)
+                emp_base = min(current_salary, max_income) if current_salary >= min_income else 0.0
+                
+                # 雇主缴费：始终按 min(工资, max_income)（不抬高到 min_income）
+                er_base = min(current_salary, max_income)
+                
+                emp = emp_base * emp_rate
+                er = er_base * er_rate
+                contrib = emp + er
+                
+                # 账户余额按月复利增长
+                balance = balance * (1 + annual_return/12.0) + contrib
+                total_contrib += contrib
+            
+            # 工资年增长在年末做
+            current_salary *= (1 + wage_growth)
+        
+        final_balance = balance
+        
+        # 计算累计个人和雇主缴费（用于统计）
+        total_emp_contrib = 0.0
+        total_er_contrib = 0.0
+        salary = initial_salary
+        
+        for year_idx in range(years):
+            for month in range(12):
+                # 员工缴费基数
+                emp_base = min(salary, max_income) if salary >= min_income else 0.0
+                # 雇主缴费基数
+                er_base = min(salary, max_income)
+                
+                emp = emp_base * emp_rate
+                er = er_base * er_rate
+                total_emp_contrib += emp
+                total_er_contrib += er
+            # 工资年增长在年末做
+            salary *= (1 + wage_growth)
+        
+        # 计算收益
+        total_return = final_balance - total_contrib
+        roi_pct = final_balance / total_contrib - 1.0 if total_contrib > 0 else 0.0
+        
+        # 年金换算月养老金
+        i = retire_return / 12.0
         n = retire_years * 12
-
-        if i > 0:
-            monthly_payout = final_balance * i / (1 - (1 + i) ** -n)
-        else:
-            monthly_payout = final_balance / n
-
+        monthly_pension = (final_balance * i / (1 - (1 + i) ** -n)) if i > 0 else final_balance / n
+        
         return {
             "MPF_balance": final_balance,
-            "MPF_monthly_pension": monthly_payout,
-            "employee_contrib": total_emp,
-            "employer_contrib": total_er,
-            "total_contrib": total_emp + total_er
+            "MPF_monthly_pension": monthly_pension,
+            "employee_contrib": total_emp_contrib,
+            "employer_contrib": total_er_contrib,
+            "total_contrib": total_contrib,
+            "total_return": total_return,
+            "roi_pct": roi_pct
         }
 
     def _calculate_monthly_pension(self,

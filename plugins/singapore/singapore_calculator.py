@@ -49,34 +49,60 @@ class SingaporePensionCalculator(BasePensionCalculator):
         # 月退休金
         monthly_pension = cpf_result['CPF_LIFE_monthly']
 
-        # 计算总缴费
-        total_contribution = sum(record['total_contribution'] for record in contribution_history)
+        # 计算总缴费（按照用户要求：total_contrib = total_emp + total_er）
+        total_emp = sum(record['personal_contribution'] for record in contribution_history)
+        total_er = sum(record['employer_contribution'] for record in contribution_history)
+        total_contrib = total_emp + total_er  # 合计37%
 
         # 计算总收益（假设活到85岁）
         life_expectancy = 85
         retirement_years = life_expectancy - retirement_age
         total_benefit = monthly_pension * 12 * retirement_years
 
-        # 计算ROI
-        roi = (total_benefit - total_contribution) / total_contribution if total_contribution > 0 else 0
+        # A) 回报率与余额（资产口径）
+        final_balance = cpf_result['OA'] + cpf_result['SA'] + cpf_result['MA']  # 不包括RA
+        total_return = final_balance - total_contrib
+        roi_pct = final_balance / total_contrib - 1.0 if total_contrib > 0 else 0
+
+        # B) 退休档位
+        tier = self._cpf_tier(cpf_result['RA'], brs=137_000, frs=205_800, ers=308_700)
+
+        # C) 月退休金（两种展示：年金近似 + CPF LIFE 区间）
+        ra_balance = cpf_result['RA']
+        i = 0.03 / 12  # 月利率
+        n = 20 * 12    # 20年月数
+        monthly_payout = ra_balance * i / (1 - (1 + i) ** -n) if i > 0 and n > 0 else ra_balance / n
+        
+        # CPF LIFE参考区间
+        low, high = self._cpf_life_range(tier)
+        monthly_pension = monthly_payout  # 使用年金计算结果
 
         # 计算回本年龄
         break_even_age = self._calculate_break_even_age(
-            total_contribution, monthly_pension, retirement_age
+            total_contrib, monthly_pension, retirement_age
         )
 
         return PensionResult(
             monthly_pension=monthly_pension,
-            total_contribution=total_contribution,
+            total_contribution=total_contrib,
             total_benefit=total_benefit,
             break_even_age=break_even_age,
-            roi=roi,
+            roi=roi_pct,
             original_currency="SGD",
             details={
                 'oa_balance': cpf_result['OA'],
                 'sa_balance': cpf_result['SA'],
                 'ma_balance': cpf_result['MA'],
                 'ra_balance': cpf_result['RA'],
+                'final_balance': final_balance,
+                'total_return': total_return,
+                'total_contrib': total_contrib,
+                'total_emp': total_emp,
+                'total_er': total_er,
+                'tier': tier,
+                'monthly_payout': monthly_payout,
+                'cpf_life_low': low,
+                'cpf_life_high': high,
                 'work_years': work_years,
                 'retirement_age': retirement_age
             }
@@ -219,3 +245,23 @@ class SingaporePensionCalculator(BasePensionCalculator):
         years_to_break_even = months_to_break_even / 12
 
         return retirement_age + int(years_to_break_even)
+
+    def _cpf_tier(self, ra_balance: float, brs: float = 137_000, frs: float = 205_800, ers: float = 308_700) -> str:
+        """确定CPF退休档位"""
+        if ra_balance >= ers:
+            return "ERS"
+        elif ra_balance >= frs:
+            return "FRS"
+        elif ra_balance >= brs:
+            return "BRS"
+        else:
+            return "Below BRS"
+
+    def _cpf_life_range(self, tier: str) -> tuple:
+        """获取CPF LIFE参考区间"""
+        ranges = {
+            "ERS": (2400, 2700),
+            "FRS": (1600, 1800), 
+            "BRS": (900, 1000)
+        }
+        return ranges.get(tier, (0, 0))

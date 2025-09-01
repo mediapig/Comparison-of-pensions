@@ -166,7 +166,7 @@ class CurrencyConverter:
         elif currency == "GBP":
             return f"£{formatted_amount}"
         elif currency == "JPY":
-            return f"¥{formatted_amount}"
+            return f"JP¥{formatted_amount}"
         elif currency == "HKD":
             return f"HK${formatted_amount}"
         elif currency == "SGD":
