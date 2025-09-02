@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/Users/YuanKai/MyWork/Comparison-of-pensions/**)",
+      "Read(/Users/YuanKai/MyWork/Comparison-of-pensions/**)",
+      "Read(/Users/YuanKai/MyWork/Comparison-of-pensions/**)",
+      "Bash(python3:*)",
+      "Read(/Users/YuanKai/MyWork/Comparison-of-pensions/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
