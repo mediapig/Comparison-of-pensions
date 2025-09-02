@@ -1,244 +1,364 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-退休金对比系统 - 主程序
-重构后的轻量化版本，使用分析器管理器和税收计算器
+退休金对比系统 - 简化版主程序
+使用方法: python main.py 金额(人民币) --国家
 """
 
 import sys
-from core.pension_engine import PensionEngine
-from analyzers.analyzer_manager import AnalyzerManager
+import argparse
+import logging
+from datetime import date
+from typing import List
 
+from core.plugin_manager import plugin_manager
+from core.models import Person, SalaryProfile, EconomicFactors, Gender, EmploymentType
 
-def create_pension_engine():
-    """创建并注册所有国家计算器"""
-    engine = PensionEngine()
+# 配置日志
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
-    # 导入所有计算器
-    from plugins.china.china_calculator import ChinaPensionCalculator
-    from plugins.usa.usa_calculator import USAPensionCalculator
-    from plugins.taiwan.taiwan_calculator import TaiwanPensionCalculator
-    from plugins.hongkong.hongkong_calculator import HongKongPensionCalculator
-    from plugins.singapore.singapore_calculator import SingaporePensionCalculator
-    from plugins.japan.japan_calculator import JapanPensionCalculator
-    from plugins.uk.uk_calculator import UKPensionCalculator
-    from plugins.australia.australia_calculator import AustraliaPensionCalculator
-    from plugins.canada.canada_calculator import CanadaPensionCalculator
+class PensionComparisonApp:
+    """退休金对比应用主类"""
 
-    calculators = [
-        ChinaPensionCalculator(),
-        USAPensionCalculator(),
-        TaiwanPensionCalculator(),
-        HongKongPensionCalculator(),
-        SingaporePensionCalculator(),
-        JapanPensionCalculator(),
-        UKPensionCalculator(),
-        AustraliaPensionCalculator(),
-        CanadaPensionCalculator()
-    ]
+    def __init__(self):
+        self.plugin_manager = plugin_manager
 
-    for calculator in calculators:
-        engine.register_calculator(calculator)
+        # 汇率表 (2024年汇率，人民币为基准)
+        self.exchange_rates = {
+            'CNY': 1.0,      # 人民币
+            'USD': 0.14,     # 美元
+            'SGD': 0.19,     # 新加坡元
+            'CAD': 0.19,     # 加拿大元
+            'AUD': 0.21,     # 澳大利亚元
+            'HKD': 1.08,     # 港币
+            'TWD': 4.4,      # 台币
+            'JPY': 20.5,     # 日元
+            'GBP': 0.11,     # 英镑
+        }
 
-    return engine
+    def convert_cny_to_local(self, cny_amount: float, target_currency: str) -> float:
+        """将人民币转换为目标货币"""
+        if target_currency not in self.exchange_rates:
+            return cny_amount
 
-def parse_country_comparison():
-    """解析多国对比参数"""
-    # 国家代码映射
-    country_map = {
-        'cn': 'CN', 'china': 'CN',
-        'us': 'US', 'usa': 'US',
-        'tw': 'TW', 'taiwan': 'TW',
-        'hk': 'HK', 'hongkong': 'HK',
-        'sg': 'SG', 'singapore': 'SG',
-        'jp': 'JP', 'japan': 'JP',
-        'uk': 'UK', 'britain': 'UK',
-        'au': 'AU', 'australia': 'AU',
-        'ca': 'CA', 'canada': 'CA'
-    }
+        rate = self.exchange_rates[target_currency]
+        return cny_amount * rate
 
-    # 查找包含多个国家的参数
-    for arg in sys.argv[1:]:
-        if ',' in arg or arg.startswith('--'):
-            # 处理逗号分隔的国家列表，如: cn,au,us 或 --cn,au
-            countries_str = arg.replace('--', '').lower()
-            if ',' in countries_str:
-                country_codes = []
-                for country in countries_str.split(','):
-                    country = country.strip()
-                    if country in country_map:
-                        code = country_map[country]
-                        if code not in country_codes:
-                            country_codes.append(code)
-                if len(country_codes) >= 2:
-                    return country_codes
+    def show_help(self):
+        """显示帮助信息"""
+        available_countries = self.plugin_manager.get_available_countries()
 
-    return None
+        print("=== 退休金对比系统 (简化版) ===")
+        print("使用方法: python main.py 金额(人民币) --国家")
+        print()
+        print(f"✅ 已加载 {len(available_countries)} 个国家插件:")
 
-def show_help():
-    """显示帮助信息"""
-    print("=== 退休金对比系统 ===")
-    print("计算两个固定场景：")
-    print("- 月薪5万人民币，工作35年，按各国实际退休年龄，领取20年")
-    print("- 月薪5千人民币，工作35年，按各国实际退休年龄，领取20年")
-    print("\n使用以下参数可以分析特定国家:")
-    print("  单国分析:")
-    print("    --us 或 --usa-only     分析美国养老金")
-    print("    --hk 或 --hk-only     分析香港MPF")
-    print("    --sg 或 --sg-only     分析新加坡CPF")
-    print("    --cn 或 --china-only  分析中国养老金")
-    print("    --tw 或 --tw-only     分析台湾养老金")
-    print("    --jp 或 --jp-only     分析日本养老金")
-    print("    --uk 或 --uk-only     分析英国养老金")
-    print("    --au 或 --au-only     分析澳大利亚养老金")
-    print("    --ca 或 --ca-only     分析加拿大养老金")
-    print("  多国对比:")
-    print("    cn,au              对比中国和澳大利亚")
-    print("    us,cn,au           对比美国、中国和澳大利亚")
-    print("    hk,sg,tw           对比香港、新加坡和台湾")
-    print("    任意国家组合       支持2个或更多国家的任意组合")
+        for country_code in sorted(available_countries):
+            plugin = self.plugin_manager.get_plugin(country_code)
+            if plugin:
+                print(f"   • {plugin.COUNTRY_NAME} ({country_code}) - {plugin.CURRENCY}")
+
+        print()
+        print("📋 使用示例:")
+        print("   python main.py 50000 --CN        # 分析中国，月薪5万人民币")
+        print("   python main.py 30000 --US        # 分析美国，月薪3万人民币")
+        print("   python main.py 25000 --SG        # 分析新加坡，月薪2.5万人民币")
+        print()
+        print("   python main.py 20000 --cn,us,sg         # 对比多个国家")
+        print()
+        print("   python main.py --list-plugins    # 列出所有插件")
+        print("   python main.py --test-plugins    # 测试插件功能")
+
+        if self.plugin_manager.failed_plugins:
+            print()
+            print(f"⚠️  {len(self.plugin_manager.failed_plugins)} 个插件加载失败:")
+            for country, error in self.plugin_manager.failed_plugins.items():
+                print(f"   • {country}: {error}")
+
+    def list_plugins(self):
+        """列出所有插件详情"""
+        print("=== 插件详细信息 ===")
+
+        country_info = self.plugin_manager.get_country_info()
+        for country_code, info in sorted(country_info.items()):
+            print(f"\n🇨🇳 {info['country_name']} ({country_code})")
+            print(f"   货币: {info['currency']}")
+            print(f"   税年: {info['tax_year']}")
+            print(f"   外部库: {info['external_adapters']} 个")
+            print(f"   支持功能: {', '.join(info['supported_features'])}")
+
+    def test_plugins(self):
+        """测试所有插件"""
+        print("=== 插件功能测试 ===")
+
+        validation_results = self.plugin_manager.validate_all_plugins()
+
+        for country_code, result in validation_results.items():
+            plugin = self.plugin_manager.get_plugin(country_code)
+            country_name = plugin.COUNTRY_NAME if plugin else country_code
+
+            print(f"\n🧪 测试 {country_name} ({country_code}):")
+
+            if 'error' in result:
+                print(f"   ❌ 测试失败: {result['error']}")
+                continue
+
+            # 基础信息
+            if 'plugin_info' in result:
+                print(f"   ✅ 插件信息正常")
+
+            # 配置验证
+            if result.get('config_valid'):
+                print(f"   ✅ 配置验证通过")
+
+            # 外部适配器状态
+            adapters = result.get('external_adapters_status', [])
+            if adapters:
+                available_count = sum(1 for adapter in adapters if adapter['available'])
+                print(f"   📦 外部库: {available_count}/{len(adapters)} 可用")
+
+            # 基础计算测试
+            calc_results = result.get('basic_calculations', {})
+            if 'error' not in calc_results:
+                print(f"   ✅ 基础计算功能正常")
+                if 'retirement_age' in calc_results:
+                    print(f"      退休年龄: {calc_results['retirement_age']}")
+            else:
+                print(f"   ❌ 计算测试失败: {calc_results['error']}")
+
+    def analyze_single_country(self, country_code: str, monthly_salary_cny: float):
+        """分析单个国家"""
+        plugin = self.plugin_manager.get_plugin(country_code)
+        if not plugin:
+            print(f"❌ 未找到国家 {country_code} 的插件")
+            return
+
+        # 转换货币
+        monthly_salary_local = self.convert_cny_to_local(monthly_salary_cny, plugin.CURRENCY)
+
+        print(f"=== {plugin.COUNTRY_NAME} ({country_code}) 分析 ===")
+        print(f"月薪: ¥{monthly_salary_cny:,.0f} (人民币) = {plugin.format_currency(monthly_salary_local)}")
+
+        # 创建测试数据
+        person = Person(
+            name="用户",
+            birth_date=date(1985, 1, 1),
+            gender=Gender.MALE,
+            employment_type=EmploymentType.EMPLOYEE,
+            start_work_date=date(2010, 1, 1)
+        )
+
+        salary_profile = SalaryProfile(
+            monthly_salary=monthly_salary_local,  # 使用本地货币
+            annual_growth_rate=0.03,
+            contribution_start_age=22
+        )
+
+        economic_factors = EconomicFactors(
+            inflation_rate=0.02,
+            investment_return_rate=0.05,
+            social_security_return_rate=0.03
+        )
+
+        try:
+            # 计算退休金
+            pension_result = plugin.calculate_pension(person, salary_profile, economic_factors)
+            print(f"\n📊 退休金分析:")
+            print(f"  月退休金: {plugin.format_currency(pension_result.monthly_pension)}")
+            print(f"  总缴费: {plugin.format_currency(pension_result.total_contribution)}")
+            print(f"  ROI: {pension_result.roi:.2f}%")
+            if pension_result.break_even_age:
+                print(f"  回本年龄: {pension_result.break_even_age}岁")
+
+            # 计算税收
+            annual_income = monthly_salary_local * 12
+            tax_result = plugin.calculate_tax(annual_income)
+            print(f"\n💰 税务分析:")
+            print(f"  年个税: {plugin.format_currency(tax_result.get('total_tax', 0))}")
+            print(f"  税后年收入: {plugin.format_currency(tax_result.get('net_income', annual_income))}")
+            print(f"  有效税率: {tax_result.get('effective_rate', 0):.1f}%")
+
+            # 计算社保
+            ss_result = plugin.calculate_social_security(monthly_salary_local, person.work_years)
+            print(f"\n🏦 社保分析:")
+            if 'monthly_employee' in ss_result:
+                print(f"  员工月缴费: {plugin.format_currency(ss_result['monthly_employee'])}")
+            if 'monthly_employer' in ss_result:
+                print(f"  雇主月缴费: {plugin.format_currency(ss_result['monthly_employer'])}")
+            if 'total_lifetime' in ss_result:
+                print(f"  终身总缴费: {plugin.format_currency(ss_result['total_lifetime'])}")
+
+            # 显示人民币对比
+            print(f"\n💱 人民币对比:")
+            monthly_pension_cny = self.convert_cny_to_local(pension_result.monthly_pension, 'CNY') / self.exchange_rates[plugin.CURRENCY]
+            total_contribution_cny = self.convert_cny_to_local(pension_result.total_contribution, 'CNY') / self.exchange_rates[plugin.CURRENCY]
+            print(f"  月退休金: ¥{monthly_pension_cny:,.0f}")
+            print(f"  总缴费: ¥{total_contribution_cny:,.0f}")
+
+        except Exception as e:
+            print(f"❌ 计算失败: {e}")
+
+    def compare_countries(self, countries: List[str], monthly_salary_cny: float):
+        """对比多个国家"""
+        print(f"=== 多国对比分析 ({', '.join(countries)}) ===")
+        print(f"月薪: ¥{monthly_salary_cny:,.0f} (人民币)")
+
+        # 创建测试数据
+        person = Person(
+            name="对比用户",
+            birth_date=date(1985, 1, 1),
+            gender=Gender.MALE,
+            employment_type=EmploymentType.EMPLOYEE,
+            start_work_date=date(2010, 1, 1)
+        )
+
+        economic_factors = EconomicFactors(
+            inflation_rate=0.02,
+            investment_return_rate=0.05,
+            social_security_return_rate=0.03
+        )
+
+        results = {}
+        errors = {}
+
+        # 计算每个国家
+        for country_code in countries:
+            plugin = self.plugin_manager.get_plugin(country_code)
+            if not plugin:
+                errors[country_code] = f"Plugin not found"
+                continue
+
+            try:
+                # 转换货币
+                monthly_salary_local = self.convert_cny_to_local(monthly_salary_cny, plugin.CURRENCY)
+
+                salary_profile = SalaryProfile(
+                    monthly_salary=monthly_salary_local,
+                    annual_growth_rate=0.03,
+                    contribution_start_age=22
+                )
+
+                # 计算退休金
+                pension_result = plugin.calculate_pension(person, salary_profile, economic_factors)
+
+                # 计算税收
+                annual_income = monthly_salary_local * 12
+                tax_result = plugin.calculate_tax(annual_income)
+
+                # 计算社保
+                ss_result = plugin.calculate_social_security(monthly_salary_local, person.work_years)
+
+                results[country_code] = {
+                    'plugin': plugin,
+                    'pension': pension_result,
+                    'tax': tax_result,
+                    'social_security': ss_result,
+                    'retirement_age': plugin.get_retirement_age(person)
+                }
+
+            except Exception as e:
+                errors[country_code] = str(e)
+
+        if errors:
+            print(f"\n⚠️  部分国家计算失败:")
+            for country, error in errors.items():
+                print(f"   {country}: {error}")
+            print()
+
+        if not results:
+            print("❌ 没有成功计算的国家数据")
+            return
+
+        # 显示对比结果
+        print("\n📊 退休金对比 (人民币):")
+        print(f"{'国家':<10} {'月退休金':<15} {'总缴费':<15} {'ROI':<8} {'退休年龄':<8}")
+        print("-" * 60)
+
+        for country_code, data in results.items():
+            plugin = data['plugin']
+            pension_result = data['pension']
+            retirement_age = data['retirement_age']
+
+            # 转换为人民币显示
+            monthly_pension_cny = pension_result.monthly_pension / self.exchange_rates[plugin.CURRENCY]
+            total_contribution_cny = pension_result.total_contribution / self.exchange_rates[plugin.CURRENCY]
+
+            print(f"{plugin.COUNTRY_NAME:<10} ¥{monthly_pension_cny:>12,.0f} ¥{total_contribution_cny:>12,.0f} {pension_result.roi:>6.1f}% {retirement_age:>6}岁")
+
+        print("\n💰 税收对比 (人民币):")
+        print(f"{'国家':<10} {'年个税':<15} {'有效税率':<10}")
+        print("-" * 40)
+
+        for country_code, data in results.items():
+            plugin = data['plugin']
+            tax_result = data['tax']
+
+            # 转换为人民币显示
+            total_tax_cny = tax_result.get('total_tax', 0) / self.exchange_rates[plugin.CURRENCY]
+            effective_rate = tax_result.get('effective_rate', 0)
+
+            print(f"{plugin.COUNTRY_NAME:<10} ¥{total_tax_cny:>12,.0f} {effective_rate:>8.1f}%")
 
 def main():
     """主函数"""
-    # 检查多国对比参数
-    comparison_countries = parse_country_comparison()
-
-    if comparison_countries:
-        # 创建计算引擎和分析器管理器
-        engine = create_pension_engine()
-        analyzer_manager = AnalyzerManager(engine)
-
-        # 执行多国对比
-        analyzer_manager.analyze_countries_comparison(comparison_countries)
+    # 手动解析参数以支持 --cn,us,sg 格式
+    if len(sys.argv) < 2:
+        app = PensionComparisonApp()
+        app.show_help()
         return
 
-    # 检查单一国家参数
-    usa_only = '--usa-only' in sys.argv or '--us' in sys.argv
-    hk_only = '--hk-only' in sys.argv or '--hk' in sys.argv
-    sg_only = '--singapore-only' in sys.argv or '--sg' in sys.argv
-    cn_only = '--china-only' in sys.argv or '--cn' in sys.argv
-    tw_only = '--taiwan-only' in sys.argv or '--tw' in sys.argv
-    jp_only = '--japan-only' in sys.argv or '--jp' in sys.argv
-    uk_only = '--uk-only' in sys.argv or '--uk' in sys.argv
-    au_only = '--australia-only' in sys.argv or '--au' in sys.argv
-    ca_only = '--canada-only' in sys.argv or '--ca' in sys.argv
-
-    # 创建计算引擎和分析器管理器
-    engine = create_pension_engine()
-    analyzer_manager = AnalyzerManager(engine)
-
-    # 检查单一国家参数
-    if ca_only:
-        # 使用加拿大综合分析器
-        from plugins.canada.canada_comprehensive_analyzer import CanadaComprehensiveAnalyzer
-
-        # 分析两个场景
-        print("=== 加拿大高收入场景分析 ===")
-        ca_analyzer = CanadaComprehensiveAnalyzer(engine)
-        ca_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
-
-        print("\n" + "="*80)
-        print("=== 加拿大低收入场景分析 ===")
-        ca_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
-        return
-    elif au_only:
-        # 使用澳大利亚综合分析器
-        from plugins.australia.australia_comprehensive_analyzer import AustraliaComprehensiveAnalyzer
-
-        # 分析两个场景
-        print("=== 澳大利亚高收入场景分析 ===")
-        au_analyzer = AustraliaComprehensiveAnalyzer(engine)
-        au_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
-
-        print("\n" + "="*80)
-        print("=== 澳大利亚低收入场景分析 ===")
-        au_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
-        return
-    elif usa_only:
-        # 使用美国综合分析器
-        from plugins.usa.usa_comprehensive_analyzer import USAComprehensiveAnalyzer
-
-        # 分析两个场景
-        print("=== 美国高收入场景分析 ===")
-        usa_analyzer = USAComprehensiveAnalyzer(engine)
-        usa_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
-
-        print("\n" + "="*80)
-        print("=== 美国低收入场景分析 ===")
-        usa_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
-        return
-    elif cn_only:
-        # 使用中国综合分析器
-        from plugins.china.china_comprehensive_analyzer import ChinaComprehensiveAnalyzer
-
-        # 分析两个场景
-        print("=== 中国高收入场景分析 ===")
-        cn_analyzer = ChinaComprehensiveAnalyzer(engine)
-        cn_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
-
-        print("\n" + "="*80)
-        print("=== 中国低收入场景分析 ===")
-        cn_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
-        return
-    elif hk_only:
-        # 使用香港综合分析器
-        from plugins.hongkong.hongkong_comprehensive_analyzer import HongKongComprehensiveAnalyzer
-
-        # 分析两个场景
-        print("=== 香港高收入场景分析 ===")
-        hk_analyzer = HongKongComprehensiveAnalyzer(engine)
-        hk_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
-
-        print("\n" + "="*80)
-        print("=== 香港低收入场景分析 ===")
-        hk_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
-        return
-    elif tw_only:
-        # 使用台湾综合分析器
-        from plugins.taiwan.taiwan_comprehensive_analyzer import TaiwanComprehensiveAnalyzer
-
-        # 分析两个场景
-        print("=== 台湾高收入场景分析 ===")
-        tw_analyzer = TaiwanComprehensiveAnalyzer(engine)
-        tw_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
-
-        print("\n" + "="*80)
-        print("=== 台湾低收入场景分析 ===")
-        tw_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
-        return
-    elif jp_only:
-        # 使用日本综合分析器
-        from plugins.japan.japan_comprehensive_analyzer import JapanComprehensiveAnalyzer
-
-        # 分析两个场景
-        print("=== 日本高收入场景分析 ===")
-        jp_analyzer = JapanComprehensiveAnalyzer(engine)
-        jp_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
-
-        print("\n" + "="*80)
-        print("=== 日本低收入场景分析 ===")
-        jp_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
-        return
-    elif uk_only:
-        # 使用英国综合分析器
-        from plugins.uk.uk_comprehensive_analyzer import UKComprehensiveAnalyzer
-
-        # 分析两个场景
-        print("=== 英国高收入场景分析 ===")
-        uk_analyzer = UKComprehensiveAnalyzer(engine)
-        uk_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
-
-        print("\n" + "="*80)
-        print("=== 英国低收入场景分析 ===")
-        uk_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
+    # 检查特殊命令
+    if '--list-plugins' in sys.argv:
+        app = PensionComparisonApp()
+        app.list_plugins()
         return
 
-    # 如果没有指定参数，显示帮助信息
-    show_help()
-    print(f"\n已注册 {len(analyzer_manager.get_available_countries())} 个国家/地区的计算器")
-    print(f"支持的国家: {', '.join(analyzer_manager.get_available_countries())}")
+    if '--test-plugins' in sys.argv:
+        app = PensionComparisonApp()
+        app.test_plugins()
+        return
 
+    # 解析薪资参数
+    try:
+        salary = float(sys.argv[1])
+    except (ValueError, IndexError):
+        app = PensionComparisonApp()
+        app.show_help()
+        return
 
+    # 查找包含逗号的国家参数
+    countries = []
+    for arg in sys.argv[2:]:
+        if arg.startswith('--') and ',' in arg:
+            # 处理 --cn,us,sg 格式
+            country_list = arg[2:].split(',')  # 去掉 -- 前缀
+            countries = [c.strip().upper() for c in country_list]
+            break
+        elif arg.startswith('--'):
+            # 处理单个国家 --CN 格式
+            country = arg[2:].upper()
+            countries.append(country)
+
+    if not countries:
+        app = PensionComparisonApp()
+        app.show_help()
+        return
+
+    app = PensionComparisonApp()
+
+    try:
+        if len(countries) == 1:
+            app.analyze_single_country(countries[0], salary)
+        else:
+            app.compare_countries(countries, salary)
+
+    except KeyboardInterrupt:
+        print("\n程序被用户中断")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"程序执行错误: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

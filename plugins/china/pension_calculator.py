@@ -1,34 +1,19 @@
-from typing import Dict, Any, List
-import math
-from datetime import date
-from core.base_calculator import BasePensionCalculator
-from core.models import Person, SalaryProfile, EconomicFactors, PensionResult, EmploymentType
-from .china_tax_calculator import ChinaTaxCalculator
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+中国养老金计算器
+"""
 
-class ChinaPensionCalculator(BasePensionCalculator):
-    """中国退休金计算器"""
+from typing import Dict, Any, List
+from datetime import date
+from core.models import Person, SalaryProfile, EconomicFactors, PensionResult
+
+class ChinaPensionCalculator:
+    """中国养老金计算器"""
 
     def __init__(self):
-        super().__init__("CN", "中国")
-        self.tax_calculator = ChinaTaxCalculator()
-
-    def _get_retirement_ages(self) -> Dict[str, int]:
-        """获取中国退休年龄"""
-        return {
-            "male": 63,    # 更新为63岁
-            "female": 63   # 统一63岁
-        }
-
-    def _get_contribution_rates(self) -> Dict[str, float]:
-        """获取中国缴费比例"""
-        return {
-            "employee": 0.08,        # 个人缴费比例 8%
-            "civil_servant": 0.08,   # 公务员个人缴费比例 8%
-            "self_employed": 0.20,   # 自由职业者缴费比例 20%
-            "farmer": 0.10,          # 农民缴费比例 10%
-            "employer": 0.16,        # 单位缴费比例 16%
-            "total": 0.24            # 总缴费比例 24%
-        }
+        self.country_code = "CN"
+        self.country_name = "中国"
 
     def calculate_pension(self,
                          person: Person,
@@ -36,19 +21,19 @@ class ChinaPensionCalculator(BasePensionCalculator):
                          economic_factors: EconomicFactors) -> PensionResult:
         """计算中国退休金 - 使用精确算法"""
         # 使用精确的中国养老金算法
-        init_salary_month = salary_profile.base_salary
+        init_salary_month = salary_profile.monthly_salary
         init_avg_month = 10500  # 初始社平月工资（南京2024参考）
         start_age = 30  # 固定30岁开始工作
-        retire_age = self.get_retirement_age(person)
+        retire_age = 60  # 默认60岁退休
         salary_growth = salary_profile.annual_growth_rate
         avg_growth = 0.02
         emp_rate = 0.08
         base_lower = 0.60
         base_upper = 3.00
 
-        # 调用精确算法（63岁退休）
+        # 调用精确算法
         result = self._calc_china_pension_pure(
-            init_salary_month, init_avg_month, start_age, 63,  # 固定63岁退休
+            init_salary_month, init_avg_month, start_age, retire_age,
             salary_growth, avg_growth, emp_rate, base_lower, base_upper
         )
 
@@ -62,23 +47,22 @@ class ChinaPensionCalculator(BasePensionCalculator):
             contribution_history, economic_factors
         )
 
-        # 不再使用22年PMT计算总收益，仅展示个人账户相关数据
         # 总收益基于个人账户口径计算
         total_benefit = result['final_balance']  # 个人账户最终余额作为总收益展示
 
-        # 按照标准公式计算ROI和替代率（使用优化后的数据）
+        # 按照标准公式计算ROI和替代率
         final_balance = result['final_balance']  # = 员工8%累计（pa_rate=0）
         total_employee_contrib = result['personal_account_employee_sum']  # 同上一行的构成
         total_return = result['total_return']  # = 0 (pa_rate=0)
         roi_pct = final_balance / total_employee_contrib - 1.0 if total_employee_contrib > 0 else 0
-        
+
         # 替代率计算
         last_year_salary = result['last_salary'] * 12  # 年工资
         replacement = (result['total_pension'] * 12.0) / last_year_salary if last_year_salary > 0 else 0
 
         # 计算回本年龄
         break_even_age = self._calculate_break_even_age(
-            total_employee_contrib, result['total_pension'], 63  # 固定63岁退休
+            total_employee_contrib, result['total_pension'], retire_age
         )
 
         return PensionResult(
@@ -120,7 +104,7 @@ class ChinaPensionCalculator(BasePensionCalculator):
                                     salary_profile: SalaryProfile,
                                     economic_factors: EconomicFactors) -> List[Dict[str, Any]]:
         """计算缴费历史"""
-        retirement_age = self.get_retirement_age(person)
+        retirement_age = 60  # 默认60岁退休
         work_years = retirement_age - person.age
 
         if work_years <= 0:
@@ -131,7 +115,7 @@ class ChinaPensionCalculator(BasePensionCalculator):
 
         for year in range(work_years):
             age = current_age + year
-            salary = salary_profile.get_salary_at_age(age, person.age)
+            salary = salary_profile.monthly_salary * (1 + salary_profile.annual_growth_rate) ** year
 
             # 社保缴费基数（通常有上下限）
             # 2024年北京社保缴费基数下限：5869元，上限：31884元
@@ -158,59 +142,6 @@ class ChinaPensionCalculator(BasePensionCalculator):
 
         return history
 
-    def _calculate_personal_account_pension(self,
-                                          contribution_history: List[Dict[str, Any]],
-                                          economic_factors: EconomicFactors) -> float:
-        """计算个人账户养老金"""
-        total_contribution = sum(record['personal_account_contribution'] for record in contribution_history)
-
-        # 考虑投资回报
-        avg_years = len(contribution_history) / 2
-        future_value = self.calculate_future_value(
-            total_contribution, avg_years, economic_factors.social_security_return_rate
-        )
-
-        # 个人账户养老金 = 账户余额 / 计发月数
-        # 根据退休年龄确定计发月数
-        # 60岁退休：139个月，55岁退休：170个月，50岁退休：195个月
-        retirement_age = 60  # 假设男性60岁退休
-        if retirement_age == 60:
-            months = 139
-        elif retirement_age == 55:
-            months = 170
-        elif retirement_age == 50:
-            months = 195
-        else:
-            months = 139  # 默认值
-
-        return future_value / months
-
-    def _calculate_basic_pension(self,
-                               person: Person,
-                               salary_profile: SalaryProfile,
-                               work_years: int,
-                               economic_factors: EconomicFactors) -> float:
-        """计算基础养老金"""
-        # 基础养老金 = (全省上年度在岗职工月平均工资 + 本人指数化月平均缴费工资) / 2 × 缴费年限 × 1%
-
-        # 假设全省平均工资
-        avg_social_salary = 8000  # 这个值应该根据实际情况调整
-
-        # 计算本人指数化月平均缴费工资
-        total_indexed_salary = 0
-        for year in range(work_years):
-            age = person.age + year
-            salary = salary_profile.get_salary_at_age(age, person.age)
-            # 简化计算，假设指数为1
-            total_indexed_salary += salary
-
-        avg_indexed_salary = total_indexed_salary / work_years
-
-        # 基础养老金
-        basic_pension = (avg_social_salary + avg_indexed_salary) / 2 * work_years * 0.01
-
-        return basic_pension
-
     def _calculate_break_even_age(self,
                                 total_contribution: float,
                                 monthly_pension: float,
@@ -228,7 +159,7 @@ class ChinaPensionCalculator(BasePensionCalculator):
                                 init_salary_month: float,   # 初始月工资
                                 init_avg_month: float = 10500,  # 初始社平月工资（南京2024参考）
                                 start_age: int = 30,
-                                retire_age: int = 63,
+                                retire_age: int = 60,
                                 salary_growth: float = 0.02,
                                 avg_growth: float = 0.02,
                                 emp_rate: float = 0.08,
@@ -236,13 +167,13 @@ class ChinaPensionCalculator(BasePensionCalculator):
                                 base_upper: float = 3.00,   # 缴费基数上限 = 社平*300%
                                 pa_rate: float = 0.0        # 个人账户收益率，默认0%
                                 ):
-        """精确的中国养老金计算算法（按照优化版本）"""
+        """精确的中国养老金计算算法"""
         # 1) 年限与退休年龄
-        years = retire_age - start_age  # = 33 (63-30)
-        
-        # 2) 计发月数：63岁
-        JIFA_MONTHS = 170  # 60岁=139，63岁=170
-        
+        years = retire_age - start_age  # = 30 (60-30)
+
+        # 2) 计发月数：60岁
+        JIFA_MONTHS = 139  # 60岁=139，55岁=170，50岁=195
+
         # 初始化
         salary = init_salary_month
         avg = init_avg_month
@@ -278,7 +209,7 @@ class ChinaPensionCalculator(BasePensionCalculator):
         basic_monthly = ((indexed_month + last_avg_month) / 2) * (years * 0.01)
 
         # 6) 个人账户养老金（月）
-        account_monthly = personal_account / JIFA_MONTHS  # 63岁 = 170个月
+        account_monthly = personal_account / JIFA_MONTHS  # 60岁 = 139个月
 
         total_monthly = basic_monthly + account_monthly
 
@@ -318,18 +249,18 @@ class ChinaPensionCalculator(BasePensionCalculator):
         # 计算总缴费
         total_emp = sum(record['personal_contribution'] for record in contribution_history)
         total_er = sum(record['employer_contribution'] for record in contribution_history)
-        
+
         # 计算最后一年工资（用于税收计算）
         last_record = contribution_history[-1]
         last_year_salary = last_record['salary'] * 12
-        
+
         # 计算社保扣除（个人缴费部分）
         social_security_deduction = total_emp
-        
+
         # 假设住房公积金缴费比例（通常为12%）
         housing_fund_rate = 0.12
         housing_fund_deduction = last_year_salary * housing_fund_rate
-        
+
         # 设置专项附加扣除
         deductions = {
             'social_security': social_security_deduction,
@@ -341,16 +272,27 @@ class ChinaPensionCalculator(BasePensionCalculator):
             'continuing_education': 0, # 继续教育
             'other': 0               # 其他扣除
         }
-        
-        # 计算个人所得税
-        tax_result = self.tax_calculator.calculate_income_tax(last_year_salary, deductions)
-        total_tax = tax_result['total_tax']
-        
+
+        # 简化的税收计算
+        basic_deduction = 60000  # 基本减除费用
+        total_deductions = basic_deduction + sum(deductions.values())
+        taxable_income = max(0, last_year_salary - total_deductions)
+
+        # 简化的个税计算（使用累进税率）
+        if taxable_income <= 36000:
+            total_tax = taxable_income * 0.03
+        elif taxable_income <= 144000:
+            total_tax = 36000 * 0.03 + (taxable_income - 36000) * 0.10
+        elif taxable_income <= 300000:
+            total_tax = 36000 * 0.03 + 108000 * 0.10 + (taxable_income - 144000) * 0.20
+        else:
+            total_tax = 36000 * 0.03 + 108000 * 0.10 + 156000 * 0.20 + (taxable_income - 300000) * 0.25
+
         # 计算税后净收入
         net_income = last_year_salary - total_tax
         monthly_net_income = net_income / 12
         effective_tax_rate = (total_tax / last_year_salary * 100) if last_year_salary > 0 else 0
-        
+
         return {
             'total_emp': total_emp,
             'total_er': total_er,
