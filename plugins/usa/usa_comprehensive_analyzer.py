@@ -5,6 +5,7 @@
 包含养老金、社保、个税和实际到手金额的完整分析
 """
 
+from typing import Dict, Any
 from datetime import date
 from core.models import Person, SalaryProfile, EconomicFactors, Gender, EmploymentType
 from core.pension_engine import PensionEngine
@@ -209,11 +210,10 @@ class USAComprehensiveAnalyzer:
         print(f"回本年龄: {result.break_even_age}岁" if result.break_even_age else "回本年龄: 无法计算")
 
         # 显示缴费率信息
-        contribution_rates = self.calculator.contribution_rates
         print(f"\n缴费率信息:")
-        print(f"总缴费率: {contribution_rates['total']:.1%}")
-        print(f"员工缴费率: {contribution_rates['employee']:.1%}")
-        print(f"雇主缴费率: {contribution_rates['employer']:.1%}")
+        print(f"总缴费率: 15.3%")
+        print(f"员工缴费率: 7.65%")
+        print(f"雇主缴费率: 7.65%")
 
     def _analyze_income(self, monthly_salary_cny: float):
         """分析收入情况（社保+个税+实际到手）"""

@@ -5,6 +5,7 @@
 包含养老金、社保、个税和实际到手金额的完整分析
 """
 
+from typing import Dict, Any
 from datetime import date
 from core.models import Person, SalaryProfile, EconomicFactors, Gender, EmploymentType
 from core.pension_engine import PensionEngine
@@ -13,12 +14,12 @@ from utils.income_analyzer import IncomeAnalyzer
 
 class AustraliaTaxCalculator:
     """澳大利亚个人所得税计算器"""
-    
+
     def __init__(self):
         self.country_code = 'AU'
         self.country_name = '澳大利亚'
         self.currency = 'AUD'
-        
+
         # 澳大利亚个税税率表 (2024-25财年)
         self.tax_brackets = [
             {'min': 0, 'max': 18200, 'rate': 0.0, 'quick_deduction': 0},
@@ -27,7 +28,7 @@ class AustraliaTaxCalculator:
             {'min': 135000, 'max': 190000, 'rate': 0.37, 'quick_deduction': 29467},
             {'min': 190000, 'max': float('inf'), 'rate': 0.45, 'quick_deduction': 51667}
         ]
-        
+
         # 澳大利亚Superannuation缴费率 (2024-25财年)
         self.super_rates = {
             'employee': 0.0,         # 员工Super缴费率 0% (雇主承担)
@@ -39,13 +40,13 @@ class AustraliaTaxCalculator:
         """计算澳大利亚个人所得税"""
         if deductions is None:
             deductions = {}
-            
+
         # 基本个人免税额 (2024-25财年)
         basic_personal_amount = 18200
-        
+
         # 计算应纳税所得额
         taxable_income = annual_income - basic_personal_amount
-        
+
         if taxable_income <= 0:
             return {
                 'total_tax': 0,
@@ -56,27 +57,27 @@ class AustraliaTaxCalculator:
                     'tax_brackets': []
                 }
             }
-        
+
         # 计算个税
         total_tax = 0
         bracket_details = []
-        
+
         for bracket in self.tax_brackets:
             if taxable_income > bracket['min']:
                 bracket_taxable = min(taxable_income - bracket['min'],
                                     bracket['max'] - bracket['min'])
-                
+
                 if bracket_taxable > 0:
                     bracket_tax = bracket_taxable * bracket['rate']
                     total_tax += bracket_tax
-                    
+
                     bracket_details.append({
                         'bracket': f"A${bracket['min']:,.0f}-A${bracket['max']:,.0f}",
                         'rate': f"{bracket['rate']:.1%}",
                         'taxable_amount': bracket_taxable,
                         'tax_amount': bracket_tax
                     })
-        
+
         return {
             'total_tax': total_tax,
             'taxable_income': taxable_income,
@@ -91,11 +92,11 @@ class AustraliaTaxCalculator:
         """计算Superannuation缴费金额"""
         # 计算缴费基数
         contribution_base = monthly_salary
-        
+
         # 员工和雇主缴费
         employee_super = contribution_base * self.super_rates['employee']
         employer_super = contribution_base * self.super_rates['employer']
-        
+
         return {
             'contribution_base': contribution_base,
             'employee': employee_super,
@@ -198,9 +199,9 @@ class AustraliaComprehensiveAnalyzer:
 
         # 计算个人所得税
         annual_income = monthly_salary_aud * 12
-        
+
         tax_result = self.tax_calculator.calculate_income_tax(annual_income)
-        
+
         print(f"\n个人所得税:")
         print(f"年收入: {converter.format_amount(annual_income, 'AUD')}")
         print(f"应纳税所得额: {converter.format_amount(tax_result['taxable_income'], 'AUD')}")
@@ -210,10 +211,10 @@ class AustraliaComprehensiveAnalyzer:
         # 计算实际到手金额
         monthly_super = super_contribution['employee']
         monthly_tax = tax_result['total_tax'] / 12
-        
+
         monthly_net_income = monthly_salary_aud - monthly_super - monthly_tax
         effective_tax_rate = (tax_result['total_tax'] / annual_income * 100) if annual_income > 0 else 0
-        
+
         print(f"\n实际到手金额:")
         print(f"月薪: {converter.format_amount(monthly_salary_aud, 'AUD')}")
         print(f"Super: -{converter.format_amount(monthly_super, 'AUD')}")
@@ -231,19 +232,19 @@ class AustraliaComprehensiveAnalyzer:
         total_super = 0
         total_tax = 0
         total_net_income = 0
-        
+
         for year in range(37):
             current_salary = monthly_salary_cny * (1.02 ** year) * 0.21 * 12  # 转换为澳元
-            
+
             # Super缴费
             monthly_super = self.tax_calculator.calculate_super_contribution(
                 monthly_salary_cny * (1.02 ** year) * 0.21
             )['employee']
             annual_super = monthly_super * 12
-            
+
             # 个税
             annual_tax = self.tax_calculator.calculate_income_tax(current_salary)['total_tax']
-            
+
             # 累计
             total_income += current_salary
             total_super += annual_super
@@ -259,7 +260,7 @@ class AustraliaComprehensiveAnalyzer:
         super_ratio = total_super / total_income * 100 if total_income > 0 else 0
         tax_ratio = total_tax / total_income * 100 if total_income > 0 else 0
         net_ratio = total_net_income / total_income * 100 if total_income > 0 else 0
-        
+
         print(f"Super占收入比例: {super_ratio:.1f}%")
         print(f"个税占收入比例: {tax_ratio:.1f}%")
         print(f"净收入占收入比例: {net_ratio:.1f}%")
@@ -269,7 +270,7 @@ class AustraliaComprehensiveAnalyzer:
         avg_monthly_super = total_super / (37 * 12)
         avg_monthly_tax = total_tax / (37 * 12)
         avg_monthly_net = total_net_income / (37 * 12)
-        
+
         print(f"平均月收入: {converter.format_amount(avg_monthly_income, 'AUD')}")
         print(f"平均月Super: {converter.format_amount(avg_monthly_super, 'AUD')}")
         print(f"平均月个税: {converter.format_amount(avg_monthly_tax, 'AUD')}")
