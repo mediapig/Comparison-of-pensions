@@ -1,16 +1,19 @@
 # 退休金对比系统
 
-一个基于Python的插件化退休金计算和对比系统，支持多个国家的退休金计算，考虑通胀、工资增长、投资回报等复杂因素。
+一个基于Python的插件化退休金计算和对比系统，支持多个国家的退休金计算，考虑通胀、工资增长、投资回报等复杂因素。**新增综合分析功能，包含养老金、社保、个税和实际到手金额的完整分析。**
 
-## 功能特点
+## 🚀 功能特点
 
 - **插件化架构**：支持不同国家的退休金计算器
+- **综合分析**：**新增**养老金、社保、个税、实际到手金额的完整分析
 - **复杂因素考虑**：通胀、工资增长、投资回报率等
 - **多维度对比**：月退休金、总缴费、ROI、回本年龄等
 - **敏感性分析**：分析不同参数对结果的影响
 - **详细报告**：生成完整的退休金分析报告
+- **个税计算**：**新增**各国个人所得税计算，包含社保扣除
+- **实际到手**：**新增**扣除社保和个税后的实际到手金额
 
-## 系统架构
+## 🏗️ 系统架构
 
 ```
 pension_comparison/
@@ -19,133 +22,130 @@ pension_comparison/
 │   ├── base_calculator.py  # 抽象基类
 │   └── pension_engine.py   # 计算引擎
 ├── plugins/                 # 国家插件
-│   ├── china/              # 中国退休金计算器
-│   └── usa/                # 美国退休金计算器
+│   ├── china/              # 中国退休金计算器 + 综合分析器
+│   ├── usa/                # 美国退休金计算器 + 综合分析器
+│   ├── singapore/          # 新加坡退休金计算器 + 综合分析器
+│   ├── canada/             # 加拿大退休金计算器 + 综合分析器
+│   ├── australia/          # 澳大利亚退休金计算器 + 综合分析器
+│   ├── hongkong/           # 香港退休金计算器 + 综合分析器
+│   ├── taiwan/             # 台湾退休金计算器 + 综合分析器
+│   ├── japan/              # 日本退休金计算器 + 综合分析器
+│   └── uk/                 # 英国退休金计算器 + 综合分析器
 ├── utils/                   # 工具模块
 │   ├── inflation.py        # 通胀计算
 │   ├── salary_growth.py    # 工资增长模型
-│   └── investment.py       # 投资回报计算
-└── examples/                # 使用示例
-    └── comparison_example.py
+│   ├── investment.py       # 投资回报计算
+│   ├── tax_manager.py      # 税收管理
+│   └── currency_converter.py # 货币转换
+└── main.py                  # 主程序入口
 ```
 
-## 安装依赖
+## 📦 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 快速开始
+## 🚀 快速开始
 
-### 1. 基本使用
+### 1. 命令行使用（推荐）
+
+```bash
+# 分析单个国家
+python3 main.py --cn    # 中国
+python3 main.py --sg    # 新加坡
+python3 main.py --us    # 美国
+python3 main.py --ca    # 加拿大
+python3 main.py --au    # 澳大利亚
+python3 main.py --hk    # 香港
+python3 main.py --tw    # 台湾
+python3 main.py --jp    # 日本
+python3 main.py --uk    # 英国
+
+# 多国对比
+python3 main.py cn,us,au    # 对比中国、美国、澳大利亚
+python3 main.py sg,hk,tw    # 对比新加坡、香港、台湾
+```
+
+### 2. 程序化使用
 
 ```python
 from core.pension_engine import PensionEngine
-from plugins.china.china_calculator import ChinaPensionCalculator
+from plugins.china.china_comprehensive_analyzer import ChinaComprehensiveAnalyzer
 from core.models import Person, SalaryProfile, EconomicFactors, Gender, EmploymentType
 from datetime import date
 
 # 创建计算引擎
 engine = PensionEngine()
-engine.register_calculator(ChinaPensionCalculator())
 
-# 创建个人信息
-person = Person(
-    name="张三",
-    birth_date=date(1990, 1, 1),
-    gender=Gender.MALE,
-    employment_type=EmploymentType.EMPLOYEE,
-    start_work_date=date(2015, 7, 1)
-)
-
-# 创建工资档案
-salary_profile = SalaryProfile(
-    base_salary=8000,
-    annual_growth_rate=0.05
-)
-
-# 创建经济因素
-economic_factors = EconomicFactors(
-    inflation_rate=0.03,
-    investment_return_rate=0.07,
-    social_security_return_rate=0.05
-)
-
-# 计算退休金
-result = engine.calculate_all_countries(person, salary_profile, economic_factors)
+# 使用综合分析器
+analyzer = ChinaComprehensiveAnalyzer(engine)
+analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
 ```
 
-### 2. 多国家对比
+## 🌍 支持的国家和地区
 
-```python
-# 注册多个国家计算器
-engine.register_calculator(ChinaPensionCalculator())
-engine.register_calculator(USAPensionCalculator())
+### 📊 完整对比表格
 
-# 对比不同国家的退休金
-comparison = engine.compare_pensions(person, salary_profile, economic_factors)
-print(comparison)
-```
+| 国家/地区 | 代码 | 养老金系统 | 社保系统 | 个税特点 | 退休年龄 | 综合分析 |
+|-----------|------|------------|----------|----------|----------|----------|
+| **中国** | CN | 基础养老金+个人账户 | 社保（养老+医疗+失业） | 专项附加扣除 | 男60/女55 | ✅ 完整 |
+| **新加坡** | SG | CPF中央公积金 | CPF（OA+SA+MA） | 累进税率，CPF扣除 | 62 | ✅ 完整 |
+| **加拿大** | CA | CPP+OAS | CPP+EI | 基本免税额，CPP/EI扣除 | 65 | ✅ 完整 |
+| **澳大利亚** | AU | Superannuation | Superannuation | 基本免税额，Super雇主承担 | 67 | ✅ 完整 |
+| **美国** | US | Social Security | SS+Medicare | 标准扣除额，SS/Medicare扣除 | 67 | ✅ 完整 |
+| **香港** | HK | MPF强积金 | MPF | 基本免税额，MPF扣除 | 65 | ✅ 完整 |
+| **台湾** | TW | 劳保+国民年金 | 劳保+健保 | 基本免税额，劳保/健保扣除 | 65 | ✅ 完整 |
+| **日本** | JP | 厚生年金+国民年金 | 厚生年金+健康保险 | 基本控除，厚生年金/健保扣除 | 65 | ✅ 完整 |
+| **英国** | UK | 国家养老金+职场养老金 | National Insurance+养老金 | 个人免税额，养老金扣除 | 68 | ✅ 完整 |
 
-### 3. 敏感性分析
+### 💰 详细财务对比分析
 
-```python
-# 分析通胀率对退休金的影响
-inflation_analysis = engine.sensitivity_analysis(
-    person, salary_profile, economic_factors, 'inflation_rate',
-    [0.01, 0.02, 0.03, 0.04, 0.05]
-)
-```
+**📋 完整对比结果请查看 [COMPARISON_RESULTS.md](COMPARISON_RESULTS.md)**
 
-## 支持的国家和地区
+该文件包含：
+- 月薪5万和5千人民币的详细对比
+- 社保缴费率对比
+- 个税税率对比
+- 全生命周期财务总结
+- 关键发现和投资回报率分析
 
-### 中国 (CN)
-- 企业职工、公务员、自由职业者、农民
-- 个人账户养老金 + 基础养老金
-- 考虑社保缴费基数上下限
+## 🔍 综合分析功能
 
-### 美国 (US)
-- 社会保障金计算
-- 基于AIME和PIA的计算方法
-- 考虑提前退休的减少
+### 📋 分析内容
 
+每个国家的综合分析器都包含以下三个部分：
 
-### 台湾 (TW)
-- 劳保年金制度
-- 基于投保薪资和年资计算
-- 考虑缴费上下限
+#### 1. 🏦 养老金分析
+- 月退休金金额
+- 总缴费金额
+- 投资回报率 (ROI)
+- 回本年龄
+- 缴费率信息
 
-### 香港 (HK)
-- 强积金制度
-- 基于账户余额的年金提取
-- 雇主和个人共同缴费
+#### 2. 💰 收入分析
+- 社保缴费详情（员工+雇主）
+- 个人所得税计算
+- 实际到手金额
+- 有效税率
+- 扣除项明细
 
-### 新加坡 (SG)
-- 中央公积金制度
-- CPF Life年金计划
-- 强制雇主缴费
+#### 3. 📊 全生命周期总结
+- 工作期间总收入
+- 社保缴费总额
+- 个税总额
+- 净收入总额
+- 各项比例分析
+- 月平均值
 
-### 日本 (JP)
-- 国民年金 + 厚生年金
-- 多层次保障体系
-- 基于缴费年限和收入
+### 💡 使用场景
 
-### 英国 (UK)
-- 国家养老金制度
-- 需要35年缴费获得全额
-- 基于国民保险缴费
+- **个人财务规划**：了解不同国家的实际到手收入
+- **移民决策参考**：对比各国的税收负担和社保体系
+- **企业国际化**：了解不同国家的用工成本
+- **学术研究**：分析各国养老金和税收政策差异
 
-### 澳大利亚 (AU)
-- 超级年金制度
-- 雇主强制缴费10.5%
-- 基于账户余额的年金提取
-
-### 加拿大 (CA)
-- CPP + OAS双重体系
-- 基于缴费历史和居住年限
-- 多层次保障设计
-
-## 核心概念
+## 🧮 核心概念
 
 ### 1. 通胀计算
 - 通胀调整后的金额
@@ -164,56 +164,100 @@ inflation_analysis = engine.sensitivity_analysis(
 - 蒙特卡洛模拟
 - 序列回报风险
 
-## 扩展新国家
+### 4. 税收计算
+- **新增** 各国个税税率表
+- **新增** 社保缴费计算
+- **新增** 税前扣除项
+- **新增** 有效税率计算
+
+## 🔧 扩展新国家
 
 要添加新的国家支持，需要：
 
 1. 在 `plugins/` 目录下创建新的国家目录
-2. 继承 `BasePensionCalculator` 类
-3. 实现必要的方法：
-   - `_get_retirement_ages()`
-   - `_get_contribution_rates()`
-   - `calculate_pension()`
-   - `calculate_contribution_history()`
+2. 创建 `*_comprehensive_analyzer.py` 文件
+3. 实现 `*_TaxCalculator` 类，包含：
+   - 个税税率表
+   - 社保缴费率
+   - 个税计算方法
+   - 社保缴费计算方法
+4. 实现 `*_ComprehensiveAnalyzer` 类，包含：
+   - `_analyze_pension()` 方法
+   - `_analyze_income()` 方法
+   - `_analyze_lifetime_summary()` 方法
 
 示例：
 
 ```python
-from core.base_calculator import BasePensionCalculator
-
-class JapanPensionCalculator(BasePensionCalculator):
+class FranceTaxCalculator:
     def __init__(self):
-        super().__init__("JP", "日本")
+        self.tax_brackets = [...]  # 法国个税税率表
+        self.social_rates = {...}  # 法国社保费率
 
-    def _get_retirement_ages(self):
-        return {"male": 65, "female": 65}
+    def calculate_income_tax(self, annual_income, deductions):
+        # 实现法国个税计算逻辑
+        pass
 
-    def _get_contribution_rates(self):
-        return {"employee": 0.0915}
+    def calculate_social_contribution(self, monthly_salary):
+        # 实现法国社保缴费计算逻辑
+        pass
 
-    def calculate_pension(self, person, salary_profile, economic_factors):
-        # 实现日本退休金计算逻辑
+class FranceComprehensiveAnalyzer:
+    def __init__(self, engine):
+        self.engine = engine
+        self.tax_calculator = FranceTaxCalculator()
+
+    def analyze_comprehensive(self, monthly_salary_cny):
+        # 实现综合分析逻辑
         pass
 ```
 
-## 运行示例
+## 🎯 运行示例
 
+### 查看帮助信息
 ```bash
-cd examples
-python comparison_example.py
+python3 main.py
 ```
 
-## 注意事项
+### 分析中国情况
+```bash
+python3 main.py --cn
+```
+
+### 对比多个国家
+```bash
+python3 main.py cn,us,au
+```
+
+## ⚠️ 注意事项
 
 1. **数据准确性**：本系统主要用于教育和研究目的，实际退休金计算请参考官方政策
 2. **参数设置**：通胀率、投资回报率等参数需要根据实际情况调整
-3. **货币单位**：不同国家使用不同货币，注意单位转换
-4. **政策变化**：退休金政策可能发生变化，需要及时更新计算逻辑
+3. **货币单位**：不同国家使用不同货币，系统自动转换显示
+4. **政策变化**：退休金和税收政策可能发生变化，需要及时更新计算逻辑
+5. **汇率波动**：货币转换使用固定汇率，实际汇率会有波动
 
-## 贡献
+## 🤝 贡献
 
 欢迎提交Issue和Pull Request来改进这个系统！
 
-## 许可证
+## 📄 许可证
 
 MIT License
+
+## 🔄 更新日志
+
+### v2.0.0 (2024)
+- **新增** 综合分析功能
+- **新增** 各国个税计算
+- **新增** 社保缴费计算
+- **新增** 实际到手金额分析
+- **新增** 全生命周期总结
+- **新增** 英国、日本、台湾、香港综合分析器
+- **优化** 输出格式统一化
+- **修复** 各种计算错误和显示问题
+
+### v1.0.0 (2023)
+- 基础养老金计算功能
+- 支持中国、美国、新加坡等国家
+- 插件化架构设计
