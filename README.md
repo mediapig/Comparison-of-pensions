@@ -2,16 +2,39 @@
 
 一个基于Python的插件化退休金计算和对比系统，支持多个国家的退休金计算，考虑通胀、工资增长、投资回报等复杂因素。**新增综合分析功能，包含养老金、社保、个税和实际到手金额的完整分析。**
 
+## 🆕 最新更新 - 外部库集成
+
+**v3.0 重大更新**: 集成多个开源税务和养老金计算库，提供更专业和准确的计算结果！
+
+### 🔬 集成的专业库
+- **🇺🇸 美国**: `taxcalc` (PSL官方) + `Open Social Security`
+- **🇬🇧 英国**: `CoolTaxTool` + `UK Tax Calculator` + `taxman`
+- **🌐 通用**: `numpy-financial` + `OpenFisca` + `scipy`
+- **📊 智能回退**: 外部库不可用时自动使用内置实现
+
+### 🚀 立即体验
+```bash
+# 一键安装所有外部库
+python scripts/install_external_libs.py
+
+# 测试集成状态
+python scripts/test_external_integrations.py
+```
+
+📖 **详细集成指南**: [EXTERNAL_LIBRARIES_GUIDE.md](EXTERNAL_LIBRARIES_GUIDE.md)
+
 ## 🚀 功能特点
 
 - **插件化架构**：支持不同国家的退休金计算器
-- **综合分析**：**新增**养老金、社保、个税、实际到手金额的完整分析
+- **🆕 外部库集成**：集成专业开源库，计算更精确
+- **综合分析**：养老金、社保、个税、实际到手金额的完整分析
 - **复杂因素考虑**：通胀、工资增长、投资回报率等
 - **多维度对比**：月退休金、总缴费、ROI、回本年龄等
 - **敏感性分析**：分析不同参数对结果的影响
 - **详细报告**：生成完整的退休金分析报告
-- **个税计算**：**新增**各国个人所得税计算，包含社保扣除
-- **实际到手**：**新增**扣除社保和个税后的实际到手金额
+- **个税计算**：各国个人所得税计算，包含社保扣除
+- **实际到手**：扣除社保和个税后的实际到手金额
+- **🔧 智能回退**：外部库不可用时自动使用内置实现
 
 ## 🏗️ 系统架构
 
@@ -36,14 +59,29 @@ pension_comparison/
 │   ├── salary_growth.py    # 工资增长模型
 │   ├── investment.py       # 投资回报计算
 │   ├── tax_manager.py      # 税收管理
-│   └── currency_converter.py # 货币转换
+│   ├── currency_converter.py # 货币转换
+│   └── external_library_adapters.py # 🆕 外部库适配器
+├── scripts/                 # 🆕 脚本工具
+│   ├── install_external_libs.py # 外部库安装脚本
+│   └── test_external_integrations.py # 集成测试脚本
 └── main.py                  # 主程序入口
 ```
 
 ## 📦 安装依赖
 
+### 基础安装
 ```bash
 pip install -r requirements.txt
+```
+
+### 🆕 增强安装 (推荐)
+```bash
+# 安装所有外部专业库
+python scripts/install_external_libs.py
+
+# 或者分步安装
+pip install numpy-financial taxcalc  # 核心金融库
+pip install git+https://github.com/wozniakpawel/cooltaxtool.git  # 英国税收
 ```
 
 ## 🚀 快速开始
