@@ -3,12 +3,14 @@ import math
 from datetime import date
 from core.base_calculator import BasePensionCalculator
 from core.models import Person, SalaryProfile, EconomicFactors, PensionResult, EmploymentType
+from .china_tax_calculator import ChinaTaxCalculator
 
 class ChinaPensionCalculator(BasePensionCalculator):
     """中国退休金计算器"""
 
     def __init__(self):
         super().__init__("CN", "中国")
+        self.tax_calculator = ChinaTaxCalculator()
 
     def _get_retirement_ages(self) -> Dict[str, int]:
         """获取中国退休年龄"""
@@ -48,6 +50,16 @@ class ChinaPensionCalculator(BasePensionCalculator):
         result = self._calc_china_pension_pure(
             init_salary_month, init_avg_month, start_age, 63,  # 固定63岁退休
             salary_growth, avg_growth, emp_rate, base_lower, base_upper
+        )
+
+        # 计算缴费历史（用于税收计算）
+        contribution_history = self.calculate_contribution_history(
+            person, salary_profile, economic_factors
+        )
+
+        # 计算税收和税后净收入
+        tax_result = self._calculate_tax_and_net_income(
+            contribution_history, economic_factors
         )
 
         # 不再使用22年PMT计算总收益，仅展示个人账户相关数据
@@ -90,7 +102,16 @@ class ChinaPensionCalculator(BasePensionCalculator):
                 'replacement_rate': replacement,
                 'final_balance': final_balance,
                 'total_contrib': total_employee_contrib,
-                'total_return': total_return
+                'total_return': total_return,
+                # 新增税收相关字段，与新加坡保持一致
+                'total_emp': tax_result['total_emp'],
+                'total_er': tax_result['total_er'],
+                'total_tax': tax_result['total_tax'],
+                'net_income': tax_result['net_income'],
+                'effective_tax_rate': tax_result['effective_tax_rate'],
+                'monthly_net_income': tax_result['monthly_net_income'],
+                'social_security_deduction': tax_result['social_security_deduction'],
+                'housing_fund_deduction': tax_result['housing_fund_deduction']
             }
         )
 
@@ -281,4 +302,62 @@ class ChinaPensionCalculator(BasePensionCalculator):
             "years": years,
             "avg_index": avg_index,
             "jifa_months": JIFA_MONTHS
+        }
+
+    def _calculate_tax_and_net_income(self,
+                                    contribution_history: List[Dict[str, Any]],
+                                    economic_factors: EconomicFactors) -> Dict[str, Any]:
+        """计算税收和税后净收入"""
+        if not contribution_history:
+            return {
+                'total_emp': 0, 'total_er': 0, 'total_tax': 0, 'net_income': 0,
+                'effective_tax_rate': 0, 'monthly_net_income': 0,
+                'social_security_deduction': 0, 'housing_fund_deduction': 0
+            }
+
+        # 计算总缴费
+        total_emp = sum(record['personal_contribution'] for record in contribution_history)
+        total_er = sum(record['employer_contribution'] for record in contribution_history)
+        
+        # 计算最后一年工资（用于税收计算）
+        last_record = contribution_history[-1]
+        last_year_salary = last_record['salary'] * 12
+        
+        # 计算社保扣除（个人缴费部分）
+        social_security_deduction = total_emp
+        
+        # 假设住房公积金缴费比例（通常为12%）
+        housing_fund_rate = 0.12
+        housing_fund_deduction = last_year_salary * housing_fund_rate
+        
+        # 设置专项附加扣除
+        deductions = {
+            'social_security': social_security_deduction,
+            'housing_fund': housing_fund_deduction,
+            'education': 12000,      # 子女教育
+            'housing': 12000,        # 住房租金/房贷利息
+            'elderly': 24000,        # 赡养老人
+            'medical': 0,            # 大病医疗
+            'continuing_education': 0, # 继续教育
+            'other': 0               # 其他扣除
+        }
+        
+        # 计算个人所得税
+        tax_result = self.tax_calculator.calculate_income_tax(last_year_salary, deductions)
+        total_tax = tax_result['total_tax']
+        
+        # 计算税后净收入
+        net_income = last_year_salary - total_tax
+        monthly_net_income = net_income / 12
+        effective_tax_rate = (total_tax / last_year_salary * 100) if last_year_salary > 0 else 0
+        
+        return {
+            'total_emp': total_emp,
+            'total_er': total_er,
+            'total_tax': total_tax,
+            'net_income': net_income,
+            'effective_tax_rate': effective_tax_rate,
+            'monthly_net_income': monthly_net_income,
+            'social_security_deduction': social_security_deduction,
+            'housing_fund_deduction': housing_fund_deduction
         }

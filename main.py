@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 退休金对比系统 - 主程序
-重构后的轻量化版本，使用分析器管理器
+重构后的轻量化版本，使用分析器管理器和税收计算器
 """
 
 import sys
 from core.pension_engine import PensionEngine
 from analyzers.analyzer_manager import AnalyzerManager
+
 
 def create_pension_engine():
     """创建并注册所有国家计算器"""
@@ -127,38 +128,117 @@ def main():
     analyzer_manager = AnalyzerManager(engine)
 
     # 检查单一国家参数
-    if usa_only:
-        analyzer_manager.analyze_country('US')
-        return
-    elif hk_only:
-        analyzer_manager.analyze_country('HK')
-        return
-    elif sg_only:
-        analyzer_manager.analyze_country('SG')
-        return
-    elif cn_only:
-        analyzer_manager.analyze_country('CN')
-        return
-    elif tw_only:
-        analyzer_manager.analyze_country('TW')
-        return
-    elif jp_only:
-        analyzer_manager.analyze_country('JP')
-        return
-    elif uk_only:
-        analyzer_manager.analyze_country('UK')
+    if ca_only:
+        # 使用加拿大综合分析器
+        from plugins.canada.canada_comprehensive_analyzer import CanadaComprehensiveAnalyzer
+
+        # 分析两个场景
+        print("=== 加拿大高收入场景分析 ===")
+        ca_analyzer = CanadaComprehensiveAnalyzer(engine)
+        ca_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
+
+        print("\n" + "="*80)
+        print("=== 加拿大低收入场景分析 ===")
+        ca_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
         return
     elif au_only:
-        analyzer_manager.analyze_country('AU')
+        # 使用澳大利亚综合分析器
+        from plugins.australia.australia_comprehensive_analyzer import AustraliaComprehensiveAnalyzer
+
+        # 分析两个场景
+        print("=== 澳大利亚高收入场景分析 ===")
+        au_analyzer = AustraliaComprehensiveAnalyzer(engine)
+        au_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
+
+        print("\n" + "="*80)
+        print("=== 澳大利亚低收入场景分析 ===")
+        au_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
         return
-    elif ca_only:
-        analyzer_manager.analyze_country('CA')
+    elif usa_only:
+        # 使用美国综合分析器
+        from plugins.usa.usa_comprehensive_analyzer import USAComprehensiveAnalyzer
+
+        # 分析两个场景
+        print("=== 美国高收入场景分析 ===")
+        usa_analyzer = USAComprehensiveAnalyzer(engine)
+        usa_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
+
+        print("\n" + "="*80)
+        print("=== 美国低收入场景分析 ===")
+        usa_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
+        return
+    elif cn_only:
+        # 使用中国综合分析器
+        from plugins.china.china_comprehensive_analyzer import ChinaComprehensiveAnalyzer
+
+        # 分析两个场景
+        print("=== 中国高收入场景分析 ===")
+        cn_analyzer = ChinaComprehensiveAnalyzer(engine)
+        cn_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
+
+        print("\n" + "="*80)
+        print("=== 中国低收入场景分析 ===")
+        cn_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
+        return
+    elif hk_only:
+        # 使用香港综合分析器
+        from plugins.hongkong.hongkong_comprehensive_analyzer import HongKongComprehensiveAnalyzer
+
+        # 分析两个场景
+        print("=== 香港高收入场景分析 ===")
+        hk_analyzer = HongKongComprehensiveAnalyzer(engine)
+        hk_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
+
+        print("\n" + "="*80)
+        print("=== 香港低收入场景分析 ===")
+        hk_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
+        return
+    elif tw_only:
+        # 使用台湾综合分析器
+        from plugins.taiwan.taiwan_comprehensive_analyzer import TaiwanComprehensiveAnalyzer
+
+        # 分析两个场景
+        print("=== 台湾高收入场景分析 ===")
+        tw_analyzer = TaiwanComprehensiveAnalyzer(engine)
+        tw_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
+
+        print("\n" + "="*80)
+        print("=== 台湾低收入场景分析 ===")
+        tw_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
+        return
+    elif jp_only:
+        # 使用日本综合分析器
+        from plugins.japan.japan_comprehensive_analyzer import JapanComprehensiveAnalyzer
+
+        # 分析两个场景
+        print("=== 日本高收入场景分析 ===")
+        jp_analyzer = JapanComprehensiveAnalyzer(engine)
+        jp_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
+
+        print("\n" + "="*80)
+        print("=== 日本低收入场景分析 ===")
+        jp_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
+        return
+    elif uk_only:
+        # 使用英国综合分析器
+        from plugins.uk.uk_comprehensive_analyzer import UKComprehensiveAnalyzer
+
+        # 分析两个场景
+        print("=== 英国高收入场景分析 ===")
+        uk_analyzer = UKComprehensiveAnalyzer(engine)
+        uk_analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
+
+        print("\n" + "="*80)
+        print("=== 英国低收入场景分析 ===")
+        uk_analyzer.analyze_comprehensive(5000)   # 月薪5千人民币
         return
 
     # 如果没有指定参数，显示帮助信息
     show_help()
     print(f"\n已注册 {len(analyzer_manager.get_available_countries())} 个国家/地区的计算器")
     print(f"支持的国家: {', '.join(analyzer_manager.get_available_countries())}")
+
+
 
 if __name__ == "__main__":
     main()
