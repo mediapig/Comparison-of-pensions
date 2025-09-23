@@ -12,6 +12,7 @@ from core.models import Person, SalaryProfile, EconomicFactors, PensionResult
 from .cpf_calculator import SingaporeCPFCalculator, CPFAccountBalances
 from .cpf_payout_calculator import SingaporeCPFPayoutCalculator
 from .singapore_tax_calculator_enhanced import SingaporeTaxCalculatorEnhanced
+from .singapore_detailed_analyzer import SingaporeDetailedAnalyzer
 
 class SingaporePlugin(BaseCountryPlugin):
     """新加坡插件"""
@@ -25,6 +26,7 @@ class SingaporePlugin(BaseCountryPlugin):
         self.cpf_calculator = SingaporeCPFCalculator()
         self.cpf_payout_calculator = SingaporeCPFPayoutCalculator()
         self.tax_calculator_enhanced = SingaporeTaxCalculatorEnhanced()
+        self.detailed_analyzer = SingaporeDetailedAnalyzer()
 
     def _load_config(self) -> PluginConfig:
         """加载配置"""
@@ -177,3 +179,14 @@ class SingaporePlugin(BaseCountryPlugin):
     def get_retirement_age(self, person: Person) -> int:
         """获取退休年龄"""
         return 62
+
+    def print_detailed_analysis(self, 
+                               person: Person,
+                               salary_profile: SalaryProfile,
+                               economic_factors: EconomicFactors,
+                               pension_result: PensionResult,
+                               local_amount):
+        """打印详细分析"""
+        self.detailed_analyzer.print_detailed_analysis(
+            self, person, salary_profile, economic_factors, pension_result, local_amount
+        )

@@ -108,7 +108,7 @@ class AnnualAnalyzer:
         
         # 判断输入是年薪还是月薪（如果金额很大，可能是年薪）
         if local_amount.amount > 50000:  # 如果超过5万，假设是年薪
-            initial_monthly_salary = local_amount.amount / 12
+            initial_monthly_salary = local_amount.amount / 12  # 年薪转月薪
         else:
             initial_monthly_salary = local_amount.amount
         
