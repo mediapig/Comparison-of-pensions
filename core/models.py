@@ -41,15 +41,18 @@ class Person:
 @dataclass
 class SalaryProfile:
     """工资档案"""
-    base_salary: float                    # 基本工资
+    monthly_salary: float                 # 月薪
     annual_growth_rate: float             # 年增长率
+    contribution_start_age: int           # 开始缴费年龄
+    base_salary: Optional[float] = None   # 基本工资（兼容性）
     bonus_rate: float = 0.0              # 奖金比例
     social_security_base: Optional[float] = None  # 社保缴费基数
 
     def get_salary_at_age(self, age: int, start_age: int) -> float:
         """计算指定年龄的工资"""
         years = age - start_age
-        return self.base_salary * (1 + self.annual_growth_rate) ** years
+        base = self.base_salary if self.base_salary is not None else self.monthly_salary
+        return base * (1 + self.annual_growth_rate) ** years
 
 @dataclass
 class EconomicFactors:
