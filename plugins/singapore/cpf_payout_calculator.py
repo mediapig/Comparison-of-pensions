@@ -233,6 +233,178 @@ class SingaporeCPFPayoutCalculator:
             }
         }
 
+    def cpf_payout(self, RA65: float, lifespan: int = 90, start_age: int = 65) -> Dict:
+        """
+        简化的CPF养老金计算函数
+        假设在指定年龄去世，不留余额
+        
+        Args:
+            RA65: 65岁时的RA账户余额
+            lifespan: 预期寿命（默认90岁）
+            start_age: 开始领取年龄（默认65岁）
+            
+        Returns:
+            包含养老金信息的字典
+        """
+        years = lifespan - start_age
+        months = years * 12
+
+        # 每月养老金，确保去世时余额=0
+        monthly_payout = RA65 / months
+
+        # 累计领取
+        total_payout = monthly_payout * months
+
+        return {
+            "RA65": RA65,
+            "monthly_payout": monthly_payout,
+            "total_payout": total_payout,
+            "end_balance": 0,
+            "payout_years": years,
+            "payout_months": months,
+            "lifespan": lifespan,
+            "start_age": start_age
+        }
+
+    def cpf_payout_with_death_scenario(self, RA65: float, lifespan: int = 90, start_age: int = 65) -> Dict:
+        """
+        考虑去世情况的CPF养老金计算
+        包含不同寿命假设的对比分析
+        
+        Args:
+            RA65: 65岁时的RA账户余额
+            lifespan: 预期寿命（默认90岁）
+            start_age: 开始领取年龄（默认65岁）
+            
+        Returns:
+            包含不同寿命假设的养老金对比分析
+        """
+        # 不同寿命假设
+        death_scenarios = [75, 80, 85, 90, 95, 100]
+        
+        results = {}
+        
+        for death_age in death_scenarios:
+            if death_age <= start_age:
+                continue
+                
+            years = death_age - start_age
+            months = years * 12
+            
+            # 每月养老金
+            monthly_payout = RA65 / months
+            
+            # 累计领取
+            total_payout = monthly_payout * months
+            
+            results[f"death_at_{death_age}"] = {
+                "death_age": death_age,
+                "payout_years": years,
+                "payout_months": months,
+                "monthly_payout": monthly_payout,
+                "total_payout": total_payout,
+                "end_balance": 0,
+                "payout_efficiency": total_payout / RA65 if RA65 > 0 else 0  # 领取效率
+            }
+        
+        # 主要结果（基于输入的lifespan）
+        main_result = self.cpf_payout(RA65, lifespan, start_age)
+        
+        return {
+            "main_scenario": main_result,
+            "death_scenarios": results,
+            "summary": {
+                "ra65_balance": RA65,
+                "start_age": start_age,
+                "assumed_lifespan": lifespan,
+                "scenarios_analyzed": len(results),
+                "monthly_range": {
+                    "min": min(scenario["monthly_payout"] for scenario in results.values()),
+                    "max": max(scenario["monthly_payout"] for scenario in results.values())
+                },
+                "total_range": {
+                    "min": min(scenario["total_payout"] for scenario in results.values()),
+                    "max": max(scenario["total_payout"] for scenario in results.values())
+                }
+            }
+        }
+
+    def cpf_payout_death_at_90(self, RA65: float, start_age: int = 65) -> Dict:
+        """
+        专门计算90岁去世不留余额的CPF养老金情况
+        
+        Args:
+            RA65: 65岁时的RA账户余额
+            start_age: 开始领取年龄（默认65岁）
+            
+        Returns:
+            90岁去世场景的养老金信息
+        """
+        lifespan = 90
+        years = lifespan - start_age
+        months = years * 12
+
+        # 每月养老金，确保90岁时余额=0
+        monthly_payout = RA65 / months
+
+        # 累计领取
+        total_payout = monthly_payout * months
+
+        return {
+            "scenario": "90岁去世不留余额",
+            "RA65": RA65,
+            "monthly_payout": monthly_payout,
+            "total_payout": total_payout,
+            "end_balance": 0,
+            "payout_years": years,
+            "payout_months": months,
+            "lifespan": lifespan,
+            "start_age": start_age,
+            "description": f"从{start_age}岁开始每月领取${monthly_payout:,.2f}，共领取{years}年，90岁去世时余额为0"
+        }
+
+    def calculate_comprehensive_payout_analysis(self, RA65: float, start_age: int = 65) -> Dict:
+        """
+        综合养老金分析，包含90岁去世场景和其他对比情况
+        
+        Args:
+            RA65: 65岁时的RA账户余额
+            start_age: 开始领取年龄（默认65岁）
+            
+        Returns:
+            综合养老金分析结果
+        """
+        # 90岁去世场景（主要场景）
+        death_at_90 = self.cpf_payout_death_at_90(RA65, start_age)
+        
+        # 其他寿命假设对比
+        other_scenarios = self.cpf_payout_with_death_scenario(RA65, lifespan=90, start_age=start_age)
+        
+        # 计算一些关键指标
+        monthly_90 = death_at_90['monthly_payout']
+        total_90 = death_at_90['total_payout']
+        
+        return {
+            "main_scenario_90_death": death_at_90,
+            "comparison_scenarios": other_scenarios['death_scenarios'],
+            "summary": {
+                "ra65_balance": RA65,
+                "start_age": start_age,
+                "death_at_90": {
+                    "monthly_payout": monthly_90,
+                    "total_payout": total_90,
+                    "payout_years": death_at_90['payout_years'],
+                    "description": death_at_90['description']
+                },
+                "key_insights": {
+                    "monthly_income_90": f"${monthly_90:,.2f}",
+                    "total_received_90": f"${total_90:,.2f}",
+                    "years_of_payout": f"{death_at_90['payout_years']}年",
+                    "balance_at_death": "$0.00"
+                }
+            }
+        }
+
     def get_cpf_life_info(self) -> Dict:
         """获取CPF Life信息"""
         return {
@@ -243,5 +415,11 @@ class SingaporeCPFPayoutCalculator:
             'description': {
                 'level': '固定金额领取：每月领取相同金额',
                 'growing': '递增金额领取：每月金额按通胀率递增'
+            },
+            'death_at_90_scenario': {
+                'description': '假设90岁去世，不留余额的养老金计算',
+                'method': '简单平均分配：RA余额 ÷ 领取月数',
+                'advantage': '确保资金完全使用，不留遗产',
+                'disadvantage': '未考虑利息增长和通胀'
             }
         }
