@@ -53,7 +53,8 @@ pension_comparison/
 │   ├── hongkong/           # 香港退休金计算器 + 综合分析器
 │   ├── taiwan/             # 台湾退休金计算器 + 综合分析器
 │   ├── japan/              # 日本退休金计算器 + 综合分析器
-│   └── uk/                 # 英国退休金计算器 + 综合分析器
+│   ├── uk/                 # 英国退休金计算器 + 综合分析器
+│   └── norway/             # 挪威退休金计算器 + 综合分析器
 ├── utils/                   # 工具模块
 │   ├── inflation.py        # 通胀计算
 │   ├── salary_growth.py    # 工资增长模型
@@ -99,10 +100,12 @@ python3 main.py --hk    # 香港
 python3 main.py --tw    # 台湾
 python3 main.py --jp    # 日本
 python3 main.py --uk    # 英国
+python3 main.py --no    # 挪威
 
 # 多国对比
 python3 main.py cn,us,au    # 对比中国、美国、澳大利亚
 python3 main.py sg,hk,tw    # 对比新加坡、香港、台湾
+python3 main.py no,se,dk    # 对比挪威、瑞典、丹麦
 ```
 
 ### 2. 程序化使用
@@ -118,7 +121,7 @@ engine = PensionEngine()
 
 # 使用综合分析器
 analyzer = ChinaComprehensiveAnalyzer(engine)
-analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
+analyzer.analyze_comprehensive(30000)  # 月薪3万人民币
 ```
 
 ## 🌍 支持的国家和地区
@@ -136,13 +139,14 @@ analyzer.analyze_comprehensive(50000)  # 月薪5万人民币
 | **台湾** | TW | 劳保+国民年金 | 劳保+健保 | 基本免税额，劳保/健保扣除 | 65 | ✅ 完整 |
 | **日本** | JP | 厚生年金+国民年金 | 厚生年金+健康保险 | 基本控除，厚生年金/健保扣除 | 65 | ✅ 完整 |
 | **英国** | UK | 国家养老金+职场养老金 | National Insurance+养老金 | 个人免税额，养老金扣除 | 68 | ✅ 完整 |
+| **挪威** | NO | Folketrygden国民保险 | Folketrygden | 平税制+基本免税额 | 67 | ✅ 完整 |
 
 ### 💰 详细财务对比分析
 
 **📋 完整对比结果请查看 [COMPARISON_RESULTS.md](COMPARISON_RESULTS.md)**
 
 该文件包含：
-- 月薪5万和5千人民币的详细对比
+- 示例场景的详细对比（仅供参考）
 - 社保缴费率对比
 - 个税税率对比
 - 全生命周期财务总结

@@ -10,9 +10,10 @@ import importlib.util
 import logging
 from typing import Dict, List, Optional, Any
 from pathlib import Path
+from datetime import date
 
 from .base_plugin import BaseCountryPlugin
-from .models import Person, SalaryProfile, EconomicFactors
+from .models import Person, SalaryProfile, EconomicFactors, Gender, EmploymentType
 
 logger = logging.getLogger(__name__)
 
