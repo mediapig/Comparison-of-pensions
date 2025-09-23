@@ -71,8 +71,18 @@ class SingaporePlugin(BaseCountryPlugin):
         monthly_pension = payout_result.monthly_payment
         total_benefit = payout_result.total_payments
 
-        # 计算ROI
-        roi = ((total_benefit / total_contribution) - 1) * 100 if total_contribution > 0 else 0
+        # 计算ROI - 修正算法
+        # CPF账户在缴费期间就有复利收益，退休时账户余额已经包含了投资收益
+        # CPF Life是终身年金，ROI应该基于CPF账户的实际投资回报
+        if ra_balance + sa_balance > 0:
+            # CPF账户在缴费期间就有复利收益（2.5%-5%）
+            # 退休时账户余额 = 总缴费 + 投资收益
+            # 投资收益 = 账户余额 - 总缴费
+            investment_gains = (ra_balance + sa_balance) - total_contribution
+            # 计算投资回报率
+            roi = (investment_gains / total_contribution) * 100 if total_contribution > 0 else 0
+        else:
+            roi = 0
 
         # 回本年龄
         if monthly_pension > 0:
