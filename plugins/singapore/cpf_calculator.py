@@ -7,6 +7,10 @@
 
 from typing import Dict, Tuple, List
 from dataclasses import dataclass
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+from utils.irr_calculator import IRRCalculator
 
 
 @dataclass
@@ -45,12 +49,15 @@ class SingaporeCPFCalculator:
         # 使用简化的CPF模型
         result = self._cpf_model(annual_salary, start_age, retirement_age - start_age)
         
+        # 计算总缴费（员工+雇主）
+        total_lifetime = result['employee_contrib_total'] * 0.37 / 0.20  # 员工缴费 / 20% * 37%
+        
         return {
-            'total_lifetime': result['cpf_contrib'],
-            'total_employee': result['cpf_contrib'] * 0.20 / 0.37,  # 员工部分
-            'total_employer': result['cpf_contrib'] * 0.17 / 0.37,  # 雇主部分
-            'total_oa': result['cpf_contrib'] * 0.23 / 0.37,  # OA部分
-            'total_sa': result['cpf_contrib'] * 0.06 / 0.37,  # SA部分
+            'total_lifetime': total_lifetime,
+            'total_employee': result['employee_contrib_total'],  # 员工部分
+            'total_employer': total_lifetime - result['employee_contrib_total'],  # 雇主部分
+            'total_oa': total_lifetime * 0.23 / 0.37,  # OA部分
+            'total_sa': total_lifetime * 0.06 / 0.37,  # SA部分
             'total_ra': result['RA_at_65'],  # RA余额
             'total_ma': result['MA_remaining'],  # MA余额
             'final_balances': {
@@ -64,19 +71,23 @@ class SingaporeCPFCalculator:
     def _cpf_model(self, income, start_age, work_years):
         """简化的CPF模型 - 基于我们验证过的正确逻辑"""
         # === 工作期 ===
-        cpf_contrib = 0
+        employee_contrib_total = 0  # 雇员总缴费（用于IRR）
         OA = 0
         SA = 0
         MA = 0
         
         for age in range(start_age, start_age + work_years):
             base = min(income, 102000)   # 年薪上限
-            contrib = base * 0.37        # 总缴费
-            cpf_contrib += contrib
-            # 按比例分配 OA, SA, MA
-            OA += base * 0.23
-            SA += base * 0.06
-            MA += base * 0.08
+            employee_contrib = base * 0.20  # 雇员缴费
+            employer_contrib = base * 0.17   # 雇主缴费
+            total_contrib = employee_contrib + employer_contrib  # 总缴费37%
+            
+            employee_contrib_total += employee_contrib
+            
+            # 按比例分配 OA, SA, MA（确保分配总额等于总缴费）
+            OA += total_contrib * 0.23 / 0.37  # OA: 23%
+            SA += total_contrib * 0.06 / 0.37  # SA: 6%
+            MA += total_contrib * 0.08 / 0.37  # MA: 8%
         
         # === 55岁时，转入RA ===
         RA = 0
@@ -95,16 +106,31 @@ class SingaporeCPFCalculator:
             OA_remaining = OA
         
         # === 65岁开始领取 ===
-        payout_per_month = RA / 180  # 假设15年领取期
+        # 使用更准确的年金计算，而不是简单的除法
+        if RA > 0:
+            # 使用年金公式计算月领取额（假设4%年利率，25年领取期）
+            monthly_rate = 0.04 / 12
+            months = 25 * 12  # 25年
+            if monthly_rate > 0:
+                payout_per_month = RA * (monthly_rate * (1 + monthly_rate) ** months) / ((1 + monthly_rate) ** months - 1)
+            else:
+                payout_per_month = RA / months
+        else:
+            payout_per_month = 0
+        
         total_payout = payout_per_month * 12 * 25  # 25年退休期
+        
+        # 计算终值（90岁时的所有CPF账户余额）
+        terminal_value = OA_remaining + MA  # SA已转入RA，RA已用于年金
         
         return {
             'RA_at_65': RA,
             'monthly_payout': payout_per_month,
             'total_payout': total_payout,
-            'cpf_contrib': cpf_contrib,
+            'employee_contrib_total': employee_contrib_total,  # 雇员总缴费
             'OA_remaining': OA_remaining,
-            'MA_remaining': MA
+            'MA_remaining': MA,
+            'terminal_value': terminal_value
         }
 
     def calculate_annual_contribution(self, monthly_salary: float, age: int) -> CPFContribution:
@@ -149,4 +175,47 @@ class SingaporeCPFCalculator:
             'oa': 0.23,
             'sa': 0.06,
             'ma': 0.08
+        }
+    
+    def calculate_irr_analysis(self, monthly_salary: float, start_age: int = 30, retirement_age: int = 65) -> Dict:
+        """
+        计算CPF的IRR分析 - 修正版
+        
+        Args:
+            monthly_salary: 月薪
+            start_age: 开始工作年龄
+            retirement_age: 退休年龄
+            
+        Returns:
+            包含IRR和详细分析的字典
+        """
+        # 使用新的IRR计算器
+        irr_result = IRRCalculator.calculate_cpf_irr(
+            monthly_salary=monthly_salary,
+            start_age=start_age,
+            retirement_age=retirement_age,
+            terminal_age=90,
+            frequency='annual'
+        )
+        
+        # 获取传统模型结果用于对比
+        traditional_result = self._cpf_model(monthly_salary * 12, start_age, retirement_age - start_age)
+        
+        return {
+            'irr_value': irr_result['irr'],
+            'irr_percentage': irr_result['analysis']['irr_percentage'],
+            'npv_value': irr_result['npv'],
+            'cash_flows': irr_result['cash_flows'],
+            'cash_flow_details': irr_result['cash_flow_details'],
+            'summary': irr_result['summary'],
+            'analysis': irr_result['analysis'],
+            'traditional_model': {
+                'employee_contrib_total': traditional_result['employee_contrib_total'],
+                'monthly_payout': traditional_result['monthly_payout'],
+                'total_payout': traditional_result['total_payout'],
+                'terminal_value': traditional_result['terminal_value'],
+                'ra_at_65': traditional_result['RA_at_65'],
+                'oa_remaining': traditional_result['OA_remaining'],
+                'ma_remaining': traditional_result['MA_remaining']
+            }
         }

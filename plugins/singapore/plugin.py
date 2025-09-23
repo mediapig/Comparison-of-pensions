@@ -73,24 +73,35 @@ class SingaporePlugin(BaseCountryPlugin):
         monthly_pension = payout_result.monthly_payment
         total_benefit = payout_result.total_payments
 
-        # 计算ROI - 修正算法
-        # CPF账户在缴费期间就有复利收益，退休时账户余额已经包含了投资收益
-        # CPF Life是终身年金，ROI应该基于CPF账户的实际投资回报
-        if ra_balance + sa_balance > 0:
-            # CPF账户在缴费期间就有复利收益（2.5%-5%）
-            # 退休时账户余额 = 总缴费 + 投资收益
-            # 投资收益 = 账户余额 - 总缴费
-            investment_gains = (ra_balance + sa_balance) - total_contribution
-            # 计算投资回报率
-            roi = (investment_gains / total_contribution) * 100 if total_contribution > 0 else 0
+        # 计算正确的IRR - 基于个人现金流（修正版）
+        irr_analysis = self.cpf_calculator.calculate_irr_analysis(
+            monthly_salary, start_age, retirement_age
+        )
+        
+        # 使用修正的IRR值
+        irr_value = irr_analysis['irr_value']
+        irr_percentage = irr_analysis['irr_percentage']
+        
+        # 获取传统模型结果用于兼容性
+        simplified_result = irr_analysis['traditional_model']
+        employee_total = simplified_result['employee_contrib_total']
+        monthly_payout = simplified_result['monthly_payout']
+        terminal_value = simplified_result['terminal_value']
+        
+        # 计算总收益（退休领取 + 终值）
+        total_benefit_corrected = simplified_result['total_payout'] + terminal_value
+        
+        # 使用IRR作为ROI（如果IRR计算失败，则使用简单回报率）
+        if irr_percentage is not None:
+            roi = irr_percentage
         else:
-            roi = 0
-
-        # 回本年龄
-        if monthly_pension > 0:
-            break_even_months = total_contribution / monthly_pension
+            roi = (total_benefit_corrected / employee_total - 1) * 100 if employee_total > 0 else 0
+        
+        # 计算回本年龄（基于雇员缴费）
+        if monthly_payout > 0:
+            break_even_months = employee_total / monthly_payout
             break_even_age = retirement_age + (break_even_months / 12)
-            break_even_age = int(break_even_age) if break_even_age < 85 else None
+            break_even_age = int(break_even_age) if break_even_age < 90 else None
         else:
             break_even_age = None
 
@@ -122,6 +133,15 @@ class SingaporePlugin(BaseCountryPlugin):
                     'total_interest': payout_result.total_interest,
                     'payout_years': payout_result.payout_years,
                     'scheme': 'level'
+                },
+                'irr_analysis': {
+                    'irr_value': irr_value,
+                    'irr_percentage': irr_percentage,
+                    'npv_value': irr_analysis['npv_value'],
+                    'cash_flow_summary': irr_analysis['summary'],
+                    'terminal_value': terminal_value,
+                    'employee_contributions_total': employee_total,
+                    'total_benefits': total_benefit_corrected
                 }
             }
         )
