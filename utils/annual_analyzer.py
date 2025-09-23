@@ -162,6 +162,7 @@ class AnnualAnalyzer:
                                retirement_age: int) -> List[AnnualData]:
         """计算年度详细数据"""
         annual_data = []
+        work_years = retirement_age - start_age
         
         # 工资增长率（假设3%）
         salary_growth_rate = 0.03
@@ -189,10 +190,14 @@ class AnnualAnalyzer:
                 cpf_breakdown = ss_result['cpf_breakdown']
                 # MA账户的年度缴费
                 if 'ma_total' in cpf_breakdown:
-                    annual_medical_total = cpf_breakdown['ma_total'] / years if years > 0 else 0
-                    # 假设MA账户中员工和雇主各占一半
-                    annual_medical_employee = annual_medical_total * 0.5
-                    annual_medical_employer = annual_medical_total * 0.5
+                    # 这里应该计算当年的MA缴费，而不是总缴费除以年限
+                    # 使用CPF计算器计算当年的MA缴费
+                    if hasattr(plugin, 'cpf_calculator'):
+                        contribution = plugin.cpf_calculator.calculate_cpf_split(
+                            current_monthly_salary, current_age
+                        )
+                        annual_medical_employee = contribution.ma_contribution * 12
+                        annual_medical_employer = contribution.ma_contribution * 12
             
             # 计算个税（考虑社保扣除）
             # 对于新加坡，传递CPF缴费信息
@@ -241,6 +246,8 @@ class AnnualAnalyzer:
         total_tax = sum(data.annual_tax for data in annual_data)
         total_ss_employee = sum(data.annual_social_security_employee for data in annual_data)
         total_ss_employer = sum(data.annual_social_security_employer for data in annual_data)
+        total_medical_employee = sum(data.annual_medical_employee for data in annual_data)
+        total_medical_employer = sum(data.annual_medical_employer for data in annual_data)
         total_net_income = sum(data.annual_net_income for data in annual_data)
         
         return CumulativeStats(
@@ -249,6 +256,9 @@ class AnnualAnalyzer:
             total_social_security_employee=total_ss_employee,
             total_social_security_employer=total_ss_employer,
             total_social_security_total=total_ss_employee + total_ss_employer,
+            total_medical_employee=total_medical_employee,
+            total_medical_employer=total_medical_employer,
+            total_medical_total=total_medical_employee + total_medical_employer,
             total_net_income=total_net_income,
             currency=currency
         )
@@ -298,8 +308,8 @@ class AnnualAnalyzer:
         
         if show_yearly_detail:
             print(f"\n📅 年度明细:")
-            print(f"{'年份':<6} {'年龄':<4} {'年收入':<12} {'年个税':<12} {'年社保(员工)':<12} {'年社保(雇主)':<12} {'年净收入':<12}")
-            print("-" * 80)
+            print(f"{'年份':<6} {'年龄':<4} {'年收入':<12} {'年个税':<12} {'年社保(员工)':<12} {'年社保(雇主)':<12} {'年医保(员工)':<12} {'年医保(雇主)':<12} {'年净收入':<12}")
+            print("-" * 100)
             
             for data in result.annual_data:
                 print(f"{data.year:<6} {data.age:<4} "
@@ -307,6 +317,8 @@ class AnnualAnalyzer:
                       f"{self.format_currency(data.annual_tax, data.currency):<12} "
                       f"{self.format_currency(data.annual_social_security_employee, data.currency):<12} "
                       f"{self.format_currency(data.annual_social_security_employer, data.currency):<12} "
+                      f"{self.format_currency(data.annual_medical_employee, data.currency):<12} "
+                      f"{self.format_currency(data.annual_medical_employer, data.currency):<12} "
                       f"{self.format_currency(data.annual_net_income, data.currency):<12}")
         
         # 累计统计
@@ -316,6 +328,9 @@ class AnnualAnalyzer:
         print(f"  总社保(员工): {self.format_currency(result.cumulative_stats.total_social_security_employee, result.currency)}")
         print(f"  总社保(雇主): {self.format_currency(result.cumulative_stats.total_social_security_employer, result.currency)}")
         print(f"  总社保(合计): {self.format_currency(result.cumulative_stats.total_social_security_total, result.currency)}")
+        print(f"  总医保(员工): {self.format_currency(result.cumulative_stats.total_medical_employee, result.currency)}")
+        print(f"  总医保(雇主): {self.format_currency(result.cumulative_stats.total_medical_employer, result.currency)}")
+        print(f"  总医保(合计): {self.format_currency(result.cumulative_stats.total_medical_total, result.currency)}")
         print(f"  总净收入: {self.format_currency(result.cumulative_stats.total_net_income, result.currency)}")
         
         # 退休分析
