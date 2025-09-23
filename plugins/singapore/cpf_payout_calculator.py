@@ -5,8 +5,9 @@
 基于CPF Life等退休金领取方案
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Callable
 from dataclasses import dataclass
+import math
 
 
 @dataclass
@@ -20,6 +21,65 @@ class CPFPayoutResult:
     payout_schedule: List[Dict]    # 领取计划明细
 
 
+# ======= 工具/数学函数 =======
+def annuity_payment_from_present_value(PV: float, annual_rate: float, years: float, payments_per_year: int = 12) -> float:
+    """
+    等额年金（立即年金）公式：
+    monthly_rate = annual_rate / payments_per_year
+    n = years * payments_per_year
+    PMT = PV * monthly_rate / (1 - (1 + monthly_rate) ** -n)
+    返回每期支付（同货币周期）
+    """
+    m = payments_per_year
+    r_m = annual_rate / m
+    n = int(years * m)
+    if abs(r_m) < 1e-12:
+        return PV / n
+    return PV * (r_m / (1 - (1 + r_m) ** (-n)))
+
+
+def growing_annuity_payment_from_present_value(PV: float, annual_rate: float, years: float, growth_rate: float, payments_per_year: int = 12) -> float:
+    """
+    递增年金（每期按growth_rate增长）近似公式（monthly compounding）
+    采用连续逼近/离散公式。若 r == g，退化为 PV/n。
+    """
+    m = payments_per_year
+    r = annual_rate / m
+    g = growth_rate / m
+    n = int(years * m)
+    if abs(r - g) < 1e-12:
+        return PV / n
+    # 等比求和变形（离散）
+    factor = (r - g) / (1 - ((1 + g) / (1 + r)) ** n)
+    return PV * factor
+
+
+def lookup_official_payout(official_table: Dict, RA65: float, plan: str) -> float:
+    """
+    从官方表中查找养老金金额
+    如果没有精确匹配，使用线性插值
+    """
+    if not official_table:
+        return 0.0
+    
+    # 找到最接近的RA金额
+    closest_amounts = sorted(official_table.keys())
+    
+    if RA65 <= closest_amounts[0]:
+        return official_table[closest_amounts[0]]
+    elif RA65 >= closest_amounts[-1]:
+        return official_table[closest_amounts[-1]]
+    
+    # 线性插值
+    for i in range(len(closest_amounts) - 1):
+        if closest_amounts[i] <= RA65 <= closest_amounts[i + 1]:
+            x1, x2 = closest_amounts[i], closest_amounts[i + 1]
+            y1, y2 = official_table[x1], official_table[x2]
+            return y1 + (y2 - y1) * (RA65 - x1) / (x2 - x1)
+    
+    return 0.0
+
+
 class SingaporeCPFPayoutCalculator:
     """新加坡CPF领取计算器"""
 
@@ -27,6 +87,95 @@ class SingaporeCPFPayoutCalculator:
         self.country_code = 'SG'
         self.country_name = '新加坡'
         self.currency = 'SGD'
+
+    def compute_cpf_life_payout(self,
+                               RA65: float,
+                               plan: str = "standard",
+                               start_age: int = 65,
+                               nominal_discount_rate: float = 0.035,
+                               expected_life_years: float = 20.0,
+                               escalating_rate: float = 0.02,
+                               payments_per_year: int = 12,
+                               official_table_lookup: Optional[Dict] = None) -> Dict:
+        """
+        计算CPF Life的月领（优先级：官方表 > 公式）
+        
+        返回：{
+           "monthly_payout": float,   # 第一个月支付金额（若escalating则为第1个月）
+           "monthly_schedule": [ ... ] # 可选：整个领取期每月金额（长度 = (end_age-start_age)*12）
+        }
+
+        参数说明：
+        - RA65: 65岁时RA余额（货币）
+        - plan: 'standard' / 'escalating' / 'basic'
+        - nominal_discount_rate: 用于折现/计息的年利率（示例 3.5%）
+        - expected_life_years: 若使用简化年金法，作为"精算期限"的近似（例 20~30 年）
+        - escalating_rate: 对 'escalating' 计划，年增率（例 0.02 即2%）
+        - official_table_lookup: 如果可用，提供一个函数或字典 (RA_amount -> monthly)，优先使用
+        """
+        
+        # 优先：如果有官方查表函数/字典，直接返回查表值
+        if official_table_lookup is not None:
+            # 如果是字典可以直接近似查找或线性内插
+            monthly = lookup_official_payout(official_table_lookup, RA65, plan)
+            # 若escalating表为年化基础，则转换成月度序列
+            if plan == "escalating":
+                months = int(expected_life_years * payments_per_year)
+                monthly_schedule = [monthly * ((1 + escalating_rate) ** (i / payments_per_year)) for i in range(months)]
+                return {"monthly_payout": monthly_schedule[0], "monthly_schedule": monthly_schedule}
+            else:
+                months = int(expected_life_years * payments_per_year)
+                return {"monthly_payout": monthly, "monthly_schedule": [monthly] * months}
+
+        # 否则使用简化年金公式近似
+        # 定义用于年金计算的"年数"
+        # CPF LIFE 是终身年金；没有寿命表时用 expected_life_years 近似
+        years = expected_life_years  # 例如 20、25、30，根据你要模拟的保守/乐观场景调整
+
+        if plan == "standard":
+            # 标准计划：等额每月，直到预计寿命（简化）
+            monthly = annuity_payment_from_present_value(RA65, nominal_discount_rate, years, payments_per_year)
+            schedule = [monthly] * int(years * payments_per_year)
+            return {"monthly_payout": monthly, "monthly_schedule": schedule}
+
+        elif plan == "escalating":
+            # 递增计划：第一年较低，但每年按 escalating_rate 增
+            # 计算等价现值下的初始月领（growing annuity）
+            monthly = growing_annuity_payment_from_present_value(RA65, nominal_discount_rate, years, escalating_rate, payments_per_year)
+            # 构建月序列（每年以g增长，按月插值）
+            schedule = []
+            for m in range(int(years * payments_per_year)):
+                # 用年级增长近似（每12个月增长一次）
+                year_index = m // payments_per_year
+                value = monthly * ((1 + escalating_rate) ** year_index)
+                schedule.append(value)
+            return {"monthly_payout": schedule[0], "monthly_schedule": schedule}
+
+        elif plan == "basic":
+            # Basic：通常给较低固定月领（保守），我们可以用一个更保守的年数（更长期限导致月领更低）
+            conservative_years = years + 5  # 举例更保守
+            monthly = annuity_payment_from_present_value(RA65, nominal_discount_rate, conservative_years, payments_per_year)
+            schedule = [monthly] * int(conservative_years * payments_per_year)
+            return {"monthly_payout": monthly, "monthly_schedule": schedule}
+
+        else:
+            raise ValueError("Unknown CPF LIFE plan")
+
+    def build_RA_at_65(self, OA: float, SA: float, MA: float, transfer_rules: Callable, rate_sa_ra: float = 0.04, years_55_to_65: int = 10) -> float:
+        """
+        把 55→65 的转入/计息和 65 岁RA计算放到一起
+        
+        transfer_rules: 函数或参数，决定 55岁时如何从 OA/SA 转入 RA（例如先把SA都转，然后OA补齐，目标=Full Retirement Sum）
+        返回 RA65（float）和修改后的账户OA/SA/MA（用于后续若需保留OA/MA）
+        """
+        # 1) 执行55岁时的转移规则，假设传入的OA/SA为55岁时的值
+        RA = transfer_rules(OA, SA)
+        # 2) 55->65期间计息（RA计息通常 ~4%）
+        for _ in range(years_55_to_65):
+            RA *= (1 + rate_sa_ra)
+        # 3) OA/SA/MA在55->65期间也会计息（若你需要保留OA/MA）
+        #    这里假定 caller 已经对OA/SA/MA做了相应计息或需要额外处理
+        return RA
 
     def compute_payout_schedule(self,
                               principal: float,
@@ -125,7 +274,7 @@ class SingaporeCPFPayoutCalculator:
                                 payout_years: int = 30,
                                 scheme: str = "level") -> CPFPayoutResult:
         """
-        计算CPF Life退休金领取
+        计算CPF Life退休金领取（使用新的计算逻辑）
         
         Args:
             ra_balance: RA账户余额
@@ -133,7 +282,7 @@ class SingaporeCPFPayoutCalculator:
             annual_nominal_rate: 年名义利率
             annual_inflation_rate: 年通胀率
             payout_years: 领取年限
-            scheme: 领取方案
+            scheme: 领取方案 ("level" 对应 "standard", "growing" 对应 "escalating")
             
         Returns:
             CPF领取结果
@@ -151,28 +300,61 @@ class SingaporeCPFPayoutCalculator:
                 payout_schedule=[]
             )
 
-        # 计算领取计划
-        schedule = self.compute_payout_schedule(
-            principal=total_principal,
-            annual_nominal_rate=annual_nominal_rate,
-            annual_inflation_rate=annual_inflation_rate,
-            years=payout_years,
-            scheme=scheme
+        # 映射scheme到plan
+        plan_mapping = {
+            "level": "standard",
+            "growing": "escalating"
+        }
+        plan = plan_mapping.get(scheme, "standard")
+
+        # 使用新的CPF Life计算逻辑
+        payout_result = self.compute_cpf_life_payout(
+            RA65=total_principal,
+            plan=plan,
+            start_age=65,
+            nominal_discount_rate=annual_nominal_rate,
+            expected_life_years=payout_years,
+            escalating_rate=annual_inflation_rate,
+            payments_per_year=12,
+            official_table_lookup=None
         )
 
-        # 计算汇总数据
-        total_payments = sum(item['payment'] for item in schedule)
-        total_interest = sum(item['interest'] for item in schedule)
-        final_balance = schedule[-1]['balance_after'] if schedule else 0
-        monthly_payment = schedule[0]['payment'] if schedule else 0
+        monthly_payment = payout_result['monthly_payout']
+        monthly_schedule = payout_result['monthly_schedule']
+        
+        # 计算总支付和利息
+        total_payments = sum(monthly_schedule)
+        total_interest = total_payments - total_principal
+        
+        # 构建详细的schedule
+        detailed_schedule = []
+        balance = total_principal
+        monthly_rate = annual_nominal_rate / 12
+        
+        for i, payment in enumerate(monthly_schedule):
+            interest = balance * monthly_rate
+            balance = balance + interest - payment
+            if balance <= 0:
+                balance = 0
+                payment = balance + interest  # 最后一期支付全部余额
+            
+            detailed_schedule.append({
+                "month": i + 1,
+                "payment": payment,
+                "interest": interest,
+                "balance_after": balance
+            })
+            
+            if balance <= 0:
+                break
 
         return CPFPayoutResult(
             monthly_payment=monthly_payment,
             total_payments=total_payments,
             total_interest=total_interest,
             payout_years=payout_years,
-            final_balance=final_balance,
-            payout_schedule=scheme
+            final_balance=balance,
+            payout_schedule=detailed_schedule
         )
 
     def calculate_enhanced_retirement_summary(self,

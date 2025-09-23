@@ -106,19 +106,27 @@ class SingaporeCPFCalculator:
             OA_remaining = OA
         
         # === 65岁开始领取 ===
-        # 使用更准确的年金计算，而不是简单的除法
+        # 使用新的CPF Life计算方法
         if RA > 0:
-            # 使用年金公式计算月领取额（假设4%年利率，25年领取期）
-            monthly_rate = 0.04 / 12
-            months = 25 * 12  # 25年
-            if monthly_rate > 0:
-                payout_per_month = RA * (monthly_rate * (1 + monthly_rate) ** months) / ((1 + monthly_rate) ** months - 1)
-            else:
-                payout_per_month = RA / months
+            from .cpf_payout_calculator import SingaporeCPFPayoutCalculator
+            payout_calculator = SingaporeCPFPayoutCalculator()
+            
+            # 使用CPF Life Standard计划计算月养老金
+            cpf_life_result = payout_calculator.compute_cpf_life_payout(
+                RA65=RA,
+                plan="standard",
+                start_age=65,
+                nominal_discount_rate=0.035,  # 3.5%年利率
+                expected_life_years=25,       # 25年退休期
+                escalating_rate=0.02,         # 2%通胀率
+                payments_per_year=12
+            )
+            
+            payout_per_month = cpf_life_result['monthly_payout']
+            total_payout = sum(cpf_life_result['monthly_schedule'])  # 使用CPF Life计算的总领取
         else:
             payout_per_month = 0
-        
-        total_payout = payout_per_month * 12 * 25  # 25年退休期
+            total_payout = 0
         
         # 计算终值（90岁时的所有CPF账户余额）
         terminal_value = OA_remaining + MA  # SA已转入RA，RA已用于年金

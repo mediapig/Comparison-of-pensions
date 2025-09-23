@@ -64,9 +64,9 @@ class SingaporePlugin(BaseCountryPlugin):
         payout_result = self.cpf_payout_calculator.calculate_cpf_life_payout(
             ra_balance=ra_balance,
             sa_balance=sa_balance,
-            annual_nominal_rate=0.04,  # 4%年利率
+            annual_nominal_rate=0.035,  # 3.5%年利率（与CPF Life一致）
             annual_inflation_rate=0.02,  # 2%通胀率
-            payout_years=30,  # 30年领取期
+            payout_years=25,  # 25年领取期（65-90岁）
             scheme="level"  # 固定金额领取
         )
         
