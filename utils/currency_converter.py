@@ -24,7 +24,8 @@ class CurrencyConverter:
             'SGD': '新币',
             'AUD': '澳币',
             'CAD': '加币',
-            'TWD': '新台币'
+            'TWD': '新台币',
+            'NOK': '挪威克朗'
         }
 
     def get_exchange_rates(self, force_update: bool = False) -> Dict[str, float]:
@@ -104,7 +105,8 @@ class CurrencyConverter:
                 'SGD': 0.19,      # 1 CNY = 0.19 SGD
                 'AUD': 0.21,      # 1 CNY = 0.21 AUD
                 'CAD': 0.19,      # 1 CNY = 0.19 CAD
-                'TWD': 4.35       # 1 CNY = 4.35 TWD
+                'TWD': 4.35,      # 1 CNY = 4.35 TWD
+                'NOK': 1.54       # 1 CNY = 1.54 NOK
             }
         elif self.base_currency == "USD":
             self.exchange_rates = {
@@ -117,7 +119,8 @@ class CurrencyConverter:
                 'SGD': 1.35,      # 1 USD = 1.35 SGD
                 'AUD': 1.52,      # 1 USD = 1.52 AUD
                 'CAD': 1.36,      # 1 USD = 1.36 CAD
-                'TWD': 31.1       # 1 USD = 31.1 TWD
+                'TWD': 31.1,      # 1 USD = 31.1 TWD
+                'NOK': 11.0       # 1 USD = 11.0 NOK
             }
 
         self.last_update = datetime.now()
@@ -177,6 +180,8 @@ class CurrencyConverter:
             return f"C${formatted_amount}"
         elif currency == "TWD":
             return f"NT${formatted_amount}"
+        elif currency == "NOK":
+            return f"kr {formatted_amount}"
         else:
             return f"{currency} {formatted_amount}"
 
