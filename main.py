@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-退休金对比系统 - 简化版主程序
-使用方法: python main.py 金额(人民币) --国家
+退休金对比系统 - 智能货币转换版
+支持货币缩写输入和自动换算
 """
 
 import sys
@@ -13,62 +13,50 @@ from typing import List
 
 from core.plugin_manager import plugin_manager
 from core.models import Person, SalaryProfile, EconomicFactors, Gender, EmploymentType
+from utils.smart_currency_converter import SmartCurrencyConverter, CurrencyAmount
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-class PensionComparisonApp:
-    """退休金对比应用主类"""
+class SmartPensionComparisonApp:
+    """智能退休金对比应用主类"""
 
     def __init__(self):
         self.plugin_manager = plugin_manager
-
-        # 汇率表 (2024年汇率，人民币为基准)
-        self.exchange_rates = {
-            'CNY': 1.0,      # 人民币
-            'USD': 0.14,     # 美元
-            'SGD': 0.19,     # 新加坡元
-            'CAD': 0.19,     # 加拿大元
-            'AUD': 0.21,     # 澳大利亚元
-            'HKD': 1.08,     # 港币
-            'TWD': 4.4,      # 台币
-            'JPY': 20.5,     # 日元
-            'GBP': 0.11,     # 英镑
-        }
-
-    def convert_cny_to_local(self, cny_amount: float, target_currency: str) -> float:
-        """将人民币转换为目标货币"""
-        if target_currency not in self.exchange_rates:
-            return cny_amount
-
-        rate = self.exchange_rates[target_currency]
-        return cny_amount * rate
+        self.smart_converter = SmartCurrencyConverter()
 
     def show_help(self):
         """显示帮助信息"""
         available_countries = self.plugin_manager.get_available_countries()
 
-        print("=== 退休金对比系统 (简化版) ===")
-        print("使用方法: python main.py 金额(人民币) --国家")
+        print("=== 退休金对比系统 ===")
+        print("使用方法: python main.py [金额] --国家")
+        print()
+        print("💡 智能货币输入支持:")
+        print("  • 货币代码+金额: cny10000, USD5000, sgd8000")
+        print("  • 金额+货币代码: 10000CNY, 5000USD, 8000SGD")
+        print("  • 货币符号+金额: ¥10000, $5000, €4000")
+        print("  • 纯数字: 10000 (默认为人民币)")
         print()
         print(f"✅ 已加载 {len(available_countries)} 个国家插件:")
 
         for country_code in sorted(available_countries):
             plugin = self.plugin_manager.get_plugin(country_code)
             if plugin:
-                print(f"   • {plugin.COUNTRY_NAME} ({country_code}) - {plugin.CURRENCY}")
+                flag = self.get_country_flag(country_code)
+                print(f"   {flag} {plugin.COUNTRY_NAME} ({country_code}) - {plugin.CURRENCY}")
 
         print()
         print("📋 使用示例:")
-        print("   python main.py 50000 --CN        # 分析中国，月薪5万人民币")
-        print("   python main.py 30000 --US        # 分析美国，月薪3万人民币")
-        print("   python main.py 25000 --SG        # 分析新加坡，月薪2.5万人民币")
+        print("   python main.py cny30000 --CN        # 分析中国，3万人民币")
+        print("   python main.py USD5000 --US         # 分析美国，5千美元")
+        print("   python main.py sgd8000 --SG         # 分析新加坡，8千新币")
+        print("   python main.py ¥25000 --CN,US,SG    # 对比多个国家")
         print()
-        print("   python main.py 20000 --cn,us,sg         # 对比多个国家")
-        print()
-        print("   python main.py --list-plugins    # 列出所有插件")
-        print("   python main.py --test-plugins    # 测试插件功能")
+        print("   python main.py --list-plugins       # 列出所有插件")
+        print("   python main.py --test-plugins        # 测试插件功能")
+        print("   python main.py --supported-currencies # 显示支持的货币")
 
         if self.plugin_manager.failed_plugins:
             print()
@@ -76,13 +64,89 @@ class PensionComparisonApp:
             for country, error in self.plugin_manager.failed_plugins.items():
                 print(f"   • {country}: {error}")
 
+    def get_country_flag(self, country_code: str) -> str:
+        """获取国家国旗emoji"""
+        country_flags = {
+            'CN': '🇨🇳', 'US': '🇺🇸', 'SG': '🇸🇬', 'CA': '🍁', 'AU': '🇦🇺',
+            'HK': '🇭🇰', 'TW': '🇹🇼', 'JP': '🇯🇵', 'UK': '🇬🇧', 'NO': '🇳🇴',
+        }
+        return country_flags.get(country_code.upper(), '🏳️')
+
+    def show_supported_currencies(self):
+        """显示支持的货币"""
+        print("=== 支持的货币 ===")
+        supported_currencies = self.smart_converter.get_supported_currencies()
+        
+        for currency_code, info in supported_currencies.items():
+            print(f"{currency_code}: {info['name']} ({info['symbol']})")
+            print(f"  别名: {info['aliases']}")
+            print()
+        
+        # 显示实时汇率状态
+        print("=== 实时汇率状态 ===")
+        connection_status = self.smart_converter.test_realtime_connection()
+        
+        # 按优先级排序显示
+        sorted_apis = sorted(connection_status.items(), key=lambda x: x[1].get('priority', 999))
+        
+        for api_name, api_info in sorted_apis:
+            status = api_info['status']
+            free = api_info.get('free', True)
+            priority = api_info.get('priority', 999)
+            response_time = api_info.get('response_time', 0)
+            currencies_count = api_info.get('currencies_count', 0)
+            error = api_info.get('error', '')
+            
+            # 状态图标
+            if status == 'success':
+                status_icon = "✅"
+                status_text = f"可用 ({currencies_count}种货币, {response_time}ms)"
+            elif status == 'skipped':
+                status_icon = "⏭️"
+                status_text = f"跳过 ({error})"
+            elif status == 'timeout':
+                status_icon = "⏰"
+                status_text = f"超时 ({response_time}ms)"
+            elif status == 'connection_error':
+                status_icon = "🔌"
+                status_text = f"连接失败"
+            elif status == 'http_error':
+                status_icon = "🌐"
+                status_text = f"HTTP错误 ({error})"
+            elif status == 'invalid_data':
+                status_icon = "⚠️"
+                status_text = f"数据无效"
+            else:
+                status_icon = "❌"
+                status_text = f"失败 ({error})"
+            
+            free_text = "免费" if free else "付费"
+            print(f"{status_icon} {api_name} ({free_text}, 优先级{priority}): {status_text}")
+        
+        # 显示主要货币的实时汇率
+        print("\n=== 主要货币实时汇率 (相对于人民币) ===")
+        main_currencies = ['USD', 'EUR', 'GBP', 'JPY', 'SGD', 'HKD', 'NOK']
+        
+        for currency in main_currencies:
+            try:
+                rate_info = self.smart_converter.get_realtime_rate_info('CNY', currency)
+                if 'error' not in rate_info:
+                    print(f"1 CNY = {rate_info['exchange_rate']:.4f} {currency}")
+                else:
+                    print(f"{currency}: 汇率获取失败")
+            except Exception as e:
+                print(f"{currency}: 汇率获取失败 - {e}")
+        
+        print(f"\n汇率更新时间: {rate_info.get('last_update', 'N/A')}")
+
     def list_plugins(self):
         """列出所有插件详情"""
         print("=== 插件详细信息 ===")
 
         country_info = self.plugin_manager.get_country_info()
         for country_code, info in sorted(country_info.items()):
-            print(f"\n🇨🇳 {info['country_name']} ({country_code})")
+            flag = self.get_country_flag(country_code)
+            print(f"\n{flag} {info['country_name']} ({country_code})")
             print(f"   货币: {info['currency']}")
             print(f"   税年: {info['tax_year']}")
             print(f"   外部库: {info['external_adapters']} 个")
@@ -97,8 +161,9 @@ class PensionComparisonApp:
         for country_code, result in validation_results.items():
             plugin = self.plugin_manager.get_plugin(country_code)
             country_name = plugin.COUNTRY_NAME if plugin else country_code
+            flag = self.get_country_flag(country_code)
 
-            print(f"\n🧪 测试 {country_name} ({country_code}):")
+            print(f"\n🧪 测试 {flag} {country_name} ({country_code}):")
 
             if 'error' in result:
                 print(f"   ❌ 测试失败: {result['error']}")
@@ -112,12 +177,6 @@ class PensionComparisonApp:
             if result.get('config_valid'):
                 print(f"   ✅ 配置验证通过")
 
-            # 外部适配器状态
-            adapters = result.get('external_adapters_status', [])
-            if adapters:
-                available_count = sum(1 for adapter in adapters if adapter['available'])
-                print(f"   📦 外部库: {available_count}/{len(adapters)} 可用")
-
             # 基础计算测试
             calc_results = result.get('basic_calculations', {})
             if 'error' not in calc_results:
@@ -127,18 +186,20 @@ class PensionComparisonApp:
             else:
                 print(f"   ❌ 计算测试失败: {calc_results['error']}")
 
-    def analyze_single_country(self, country_code: str, monthly_salary_cny: float):
+    def analyze_single_country(self, country_code: str, currency_amount: CurrencyAmount):
         """分析单个国家"""
         plugin = self.plugin_manager.get_plugin(country_code)
         if not plugin:
             print(f"❌ 未找到国家 {country_code} 的插件")
             return
 
-        # 转换货币
-        monthly_salary_local = self.convert_cny_to_local(monthly_salary_cny, plugin.CURRENCY)
-
-        print(f"=== {plugin.COUNTRY_NAME} ({country_code}) 分析 ===")
-        print(f"月薪: ¥{monthly_salary_cny:,.0f} (人民币) = {plugin.format_currency(monthly_salary_local)}")
+        # 转换为目标国家的本地货币
+        local_amount = self.smart_converter.convert_to_local(currency_amount, plugin.CURRENCY)
+        
+        flag = self.get_country_flag(country_code)
+        print(f"=== {flag} {plugin.COUNTRY_NAME} ({country_code}) 分析 ===")
+        print(f"输入金额: {self.smart_converter.format_amount(currency_amount)}")
+        print(f"本地货币: {self.smart_converter.format_amount(local_amount)}")
 
         # 创建测试数据
         person = Person(
@@ -150,7 +211,7 @@ class PensionComparisonApp:
         )
 
         salary_profile = SalaryProfile(
-            monthly_salary=monthly_salary_local,  # 使用本地货币
+            monthly_salary=local_amount.amount,  # 使用本地货币金额
             annual_growth_rate=0.03,
             contribution_start_age=22
         )
@@ -172,7 +233,7 @@ class PensionComparisonApp:
                 print(f"  回本年龄: {pension_result.break_even_age}岁")
 
             # 计算税收
-            annual_income = monthly_salary_local * 12
+            annual_income = local_amount.amount * 12
             tax_result = plugin.calculate_tax(annual_income)
             print(f"\n💰 税务分析:")
             print(f"  年个税: {plugin.format_currency(tax_result.get('total_tax', 0))}")
@@ -180,7 +241,7 @@ class PensionComparisonApp:
             print(f"  有效税率: {tax_result.get('effective_rate', 0):.1f}%")
 
             # 计算社保
-            ss_result = plugin.calculate_social_security(monthly_salary_local, person.work_years)
+            ss_result = plugin.calculate_social_security(local_amount.amount, person.work_years)
             print(f"\n🏦 社保分析:")
             if 'monthly_employee' in ss_result:
                 print(f"  员工月缴费: {plugin.format_currency(ss_result['monthly_employee'])}")
@@ -191,18 +252,24 @@ class PensionComparisonApp:
 
             # 显示人民币对比
             print(f"\n💱 人民币对比:")
-            monthly_pension_cny = self.convert_cny_to_local(pension_result.monthly_pension, 'CNY') / self.exchange_rates[plugin.CURRENCY]
-            total_contribution_cny = self.convert_cny_to_local(pension_result.total_contribution, 'CNY') / self.exchange_rates[plugin.CURRENCY]
-            print(f"  月退休金: ¥{monthly_pension_cny:,.0f}")
-            print(f"  总缴费: ¥{total_contribution_cny:,.0f}")
+            monthly_pension_cny = self.smart_converter.convert_to_local(
+                CurrencyAmount(pension_result.monthly_pension, plugin.CURRENCY, ""), 
+                'CNY'
+            )
+            total_contribution_cny = self.smart_converter.convert_to_local(
+                CurrencyAmount(pension_result.total_contribution, plugin.CURRENCY, ""), 
+                'CNY'
+            )
+            print(f"  月退休金: {self.smart_converter.format_amount(monthly_pension_cny)}")
+            print(f"  总缴费: {self.smart_converter.format_amount(total_contribution_cny)}")
 
         except Exception as e:
             print(f"❌ 计算失败: {e}")
 
-    def compare_countries(self, countries: List[str], monthly_salary_cny: float):
+    def compare_countries(self, countries: List[str], currency_amount: CurrencyAmount):
         """对比多个国家"""
         print(f"=== 多国对比分析 ({', '.join(countries)}) ===")
-        print(f"月薪: ¥{monthly_salary_cny:,.0f} (人民币)")
+        print(f"输入金额: {self.smart_converter.format_amount(currency_amount)}")
 
         # 创建测试数据
         person = Person(
@@ -230,11 +297,11 @@ class PensionComparisonApp:
                 continue
 
             try:
-                # 转换货币
-                monthly_salary_local = self.convert_cny_to_local(monthly_salary_cny, plugin.CURRENCY)
+                # 转换为本地货币
+                local_amount = self.smart_converter.convert_to_local(currency_amount, plugin.CURRENCY)
 
                 salary_profile = SalaryProfile(
-                    monthly_salary=monthly_salary_local,
+                    monthly_salary=local_amount.amount,
                     annual_growth_rate=0.03,
                     contribution_start_age=22
                 )
@@ -243,18 +310,19 @@ class PensionComparisonApp:
                 pension_result = plugin.calculate_pension(person, salary_profile, economic_factors)
 
                 # 计算税收
-                annual_income = monthly_salary_local * 12
+                annual_income = local_amount.amount * 12
                 tax_result = plugin.calculate_tax(annual_income)
 
                 # 计算社保
-                ss_result = plugin.calculate_social_security(monthly_salary_local, person.work_years)
+                ss_result = plugin.calculate_social_security(local_amount.amount, person.work_years)
 
                 results[country_code] = {
                     'plugin': plugin,
                     'pension': pension_result,
                     'tax': tax_result,
                     'social_security': ss_result,
-                    'retirement_age': plugin.get_retirement_age(person)
+                    'retirement_age': plugin.get_retirement_age(person),
+                    'local_amount': local_amount
                 }
 
             except Exception as e:
@@ -279,12 +347,19 @@ class PensionComparisonApp:
             plugin = data['plugin']
             pension_result = data['pension']
             retirement_age = data['retirement_age']
+            flag = self.get_country_flag(country_code)
 
             # 转换为人民币显示
-            monthly_pension_cny = pension_result.monthly_pension / self.exchange_rates[plugin.CURRENCY]
-            total_contribution_cny = pension_result.total_contribution / self.exchange_rates[plugin.CURRENCY]
+            monthly_pension_cny = self.smart_converter.convert_to_local(
+                CurrencyAmount(pension_result.monthly_pension, plugin.CURRENCY, ""), 
+                'CNY'
+            )
+            total_contribution_cny = self.smart_converter.convert_to_local(
+                CurrencyAmount(pension_result.total_contribution, plugin.CURRENCY, ""), 
+                'CNY'
+            )
 
-            print(f"{plugin.COUNTRY_NAME:<10} ¥{monthly_pension_cny:>12,.0f} ¥{total_contribution_cny:>12,.0f} {pension_result.roi:>6.1f}% {retirement_age:>6}岁")
+            print(f"{flag}{plugin.COUNTRY_NAME:<8} {self.smart_converter.format_amount(monthly_pension_cny):<15} {self.smart_converter.format_amount(total_contribution_cny):<15} {pension_result.roi:>6.1f}% {retirement_age:>6}岁")
 
         print("\n💰 税收对比 (人民币):")
         print(f"{'国家':<10} {'年个税':<15} {'有效税率':<10}")
@@ -293,37 +368,53 @@ class PensionComparisonApp:
         for country_code, data in results.items():
             plugin = data['plugin']
             tax_result = data['tax']
+            flag = self.get_country_flag(country_code)
 
             # 转换为人民币显示
-            total_tax_cny = tax_result.get('total_tax', 0) / self.exchange_rates[plugin.CURRENCY]
+            total_tax_cny = self.smart_converter.convert_to_local(
+                CurrencyAmount(tax_result.get('total_tax', 0), plugin.CURRENCY, ""), 
+                'CNY'
+            )
             effective_rate = tax_result.get('effective_rate', 0)
 
-            print(f"{plugin.COUNTRY_NAME:<10} ¥{total_tax_cny:>12,.0f} {effective_rate:>8.1f}%")
+            print(f"{flag}{plugin.COUNTRY_NAME:<8} {self.smart_converter.format_amount(total_tax_cny):<15} {effective_rate:>8.1f}%")
 
 def main():
     """主函数"""
-    # 手动解析参数以支持 --cn,us,sg 格式
+    app = SmartPensionComparisonApp()
+    
+    # 手动解析参数以支持智能货币输入
     if len(sys.argv) < 2:
-        app = PensionComparisonApp()
         app.show_help()
         return
 
     # 检查特殊命令
     if '--list-plugins' in sys.argv:
-        app = PensionComparisonApp()
         app.list_plugins()
         return
 
     if '--test-plugins' in sys.argv:
-        app = PensionComparisonApp()
         app.test_plugins()
         return
 
-    # 解析薪资参数
+    if '--supported-currencies' in sys.argv:
+        app.show_supported_currencies()
+        return
+
+    if '--help' in sys.argv or '-h' in sys.argv:
+        app.show_help()
+        return
+
+    # 解析金额参数（支持智能货币输入）
     try:
-        salary = float(sys.argv[1])
-    except (ValueError, IndexError):
-        app = PensionComparisonApp()
+        amount_input = sys.argv[1]
+        # 检查是否是特殊命令
+        if amount_input.startswith('--'):
+            app.show_help()
+            return
+        currency_amount = app.smart_converter.parse_amount(amount_input)
+    except (ValueError, IndexError) as e:
+        print(f"❌ 金额解析失败: {e}")
         app.show_help()
         return
 
@@ -341,17 +432,14 @@ def main():
             countries.append(country)
 
     if not countries:
-        app = PensionComparisonApp()
         app.show_help()
         return
 
-    app = PensionComparisonApp()
-
     try:
         if len(countries) == 1:
-            app.analyze_single_country(countries[0], salary)
+            app.analyze_single_country(countries[0], currency_amount)
         else:
-            app.compare_countries(countries, salary)
+            app.compare_countries(countries, currency_amount)
 
     except KeyboardInterrupt:
         print("\n程序被用户中断")
