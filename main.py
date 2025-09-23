@@ -9,11 +9,12 @@ import sys
 import argparse
 import logging
 from datetime import date
-from typing import List
+from typing import List, Optional
 
 from core.plugin_manager import plugin_manager
 from core.models import Person, SalaryProfile, EconomicFactors, Gender, EmploymentType
 from utils.smart_currency_converter import SmartCurrencyConverter, CurrencyAmount
+from utils.annual_analyzer import AnnualAnalyzer
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -25,6 +26,7 @@ class SmartPensionComparisonApp:
     def __init__(self):
         self.plugin_manager = plugin_manager
         self.smart_converter = SmartCurrencyConverter()
+        self.annual_analyzer = AnnualAnalyzer()
 
     def show_help(self):
         """显示帮助信息"""
@@ -57,6 +59,10 @@ class SmartPensionComparisonApp:
         print("   python main.py --list-plugins       # 列出所有插件")
         print("   python main.py --test-plugins        # 测试插件功能")
         print("   python main.py --supported-currencies # 显示支持的货币")
+        print()
+        print("📊 年度详细分析:")
+        print("   python main.py --annual cny30000 --CN    # 中国年度详细分析")
+        print("   python main.py --annual USD5000 --US     # 美国年度详细分析")
 
         if self.plugin_manager.failed_plugins:
             print()
@@ -379,6 +385,17 @@ class SmartPensionComparisonApp:
 
             print(f"{flag}{plugin.COUNTRY_NAME:<8} {self.smart_converter.format_amount(total_tax_cny):<15} {effective_rate:>8.1f}%")
 
+    def analyze_annual_detail(self, country_code: str, currency_amount: CurrencyAmount, 
+                             start_age: int = 30, retirement_age: Optional[int] = None):
+        """年度详细分析"""
+        try:
+            result = self.annual_analyzer.analyze_country(
+                country_code, currency_amount, start_age, retirement_age
+            )
+            self.annual_analyzer.print_annual_analysis(result, show_yearly_detail=True)
+        except Exception as e:
+            print(f"❌ 年度分析失败: {e}")
+
 def main():
     """主函数"""
     app = SmartPensionComparisonApp()
@@ -404,6 +421,11 @@ def main():
     if '--help' in sys.argv or '-h' in sys.argv:
         app.show_help()
         return
+
+    # 检查年度分析模式
+    is_annual_mode = '--annual' in sys.argv
+    if is_annual_mode:
+        sys.argv.remove('--annual')  # 移除--annual参数
 
     # 解析金额参数（支持智能货币输入）
     try:
@@ -436,10 +458,19 @@ def main():
         return
 
     try:
-        if len(countries) == 1:
-            app.analyze_single_country(countries[0], currency_amount)
+        if is_annual_mode:
+            # 年度详细分析模式
+            if len(countries) == 1:
+                app.analyze_annual_detail(countries[0], currency_amount)
+            else:
+                print("❌ 年度详细分析模式只支持单个国家")
+                app.show_help()
         else:
-            app.compare_countries(countries, currency_amount)
+            # 普通分析模式
+            if len(countries) == 1:
+                app.analyze_single_country(countries[0], currency_amount)
+            else:
+                app.compare_countries(countries, currency_amount)
 
     except KeyboardInterrupt:
         print("\n程序被用户中断")

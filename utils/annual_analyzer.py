@@ -22,11 +22,15 @@ class AnnualData:
     annual_tax: float
     annual_social_security_employee: float
     annual_social_security_employer: float
+    annual_medical_employee: float
+    annual_medical_employer: float
     annual_net_income: float
     monthly_salary: float
     monthly_tax: float
     monthly_social_security_employee: float
     monthly_social_security_employer: float
+    monthly_medical_employee: float
+    monthly_medical_employer: float
     monthly_net_income: float
     currency: str
 
@@ -39,6 +43,9 @@ class CumulativeStats:
     total_social_security_employee: float
     total_social_security_employer: float
     total_social_security_total: float
+    total_medical_employee: float
+    total_medical_employer: float
+    total_medical_total: float
     total_net_income: float
     currency: str
 
@@ -99,6 +106,12 @@ class AnnualAnalyzer:
         # 转换为本地货币
         local_amount = self.smart_converter.convert_to_local(currency_amount, plugin.CURRENCY)
         
+        # 判断输入是年薪还是月薪（如果金额很大，可能是年薪）
+        if local_amount.amount > 50000:  # 如果超过5万，假设是年薪
+            initial_monthly_salary = local_amount.amount / 12
+        else:
+            initial_monthly_salary = local_amount.amount
+        
         # 创建测试数据
         person = Person(
             name="分析用户",
@@ -118,7 +131,7 @@ class AnnualAnalyzer:
 
         # 计算年度数据
         annual_data = self._calculate_annual_data(
-            plugin, person, local_amount, start_age, retirement_age
+            plugin, person, initial_monthly_salary, start_age, retirement_age
         )
 
         # 计算累计统计
@@ -126,7 +139,7 @@ class AnnualAnalyzer:
 
         # 计算退休分析
         retirement_analysis = self._calculate_retirement_analysis(
-            plugin, person, local_amount, work_years, plugin.CURRENCY
+            plugin, person, initial_monthly_salary, work_years, plugin.CURRENCY
         )
 
         return AnnualAnalysisResult(
@@ -162,15 +175,33 @@ class AnnualAnalyzer:
             # 计算年收入
             annual_income = current_monthly_salary * 12
             
-            # 计算社保
-            ss_result = plugin.calculate_social_security(current_monthly_salary, 1)
+            # 计算社保（传递年龄信息）
+            ss_result = plugin.calculate_social_security(current_monthly_salary, 1, age=current_age)
             monthly_ss_employee = ss_result.get('monthly_employee', 0)
             monthly_ss_employer = ss_result.get('monthly_employer', 0)
             annual_ss_employee = monthly_ss_employee * 12
             annual_ss_employer = monthly_ss_employer * 12
             
+            # 计算医保（从CPF breakdown中提取MA账户）
+            annual_medical_employee = 0
+            annual_medical_employer = 0
+            if 'cpf_breakdown' in ss_result:
+                cpf_breakdown = ss_result['cpf_breakdown']
+                # MA账户的年度缴费
+                if 'ma_total' in cpf_breakdown:
+                    annual_medical_total = cpf_breakdown['ma_total'] / years if years > 0 else 0
+                    # 假设MA账户中员工和雇主各占一半
+                    annual_medical_employee = annual_medical_total * 0.5
+                    annual_medical_employer = annual_medical_total * 0.5
+            
             # 计算个税（考虑社保扣除）
-            tax_result = plugin.calculate_tax(annual_income)
+            # 对于新加坡，传递CPF缴费信息
+            deductions = {}
+            if hasattr(plugin, 'cpf_calculator'):
+                # 新加坡CPF缴费可以作为税务减免
+                deductions['cpf_contribution'] = annual_ss_employee
+            
+            tax_result = plugin.calculate_tax(annual_income, deductions)
             annual_tax = tax_result.get('total_tax', 0)
             
             # 计算净收入
@@ -184,11 +215,15 @@ class AnnualAnalyzer:
                 annual_tax=annual_tax,
                 annual_social_security_employee=annual_ss_employee,
                 annual_social_security_employer=annual_ss_employer,
+                annual_medical_employee=annual_medical_employee,
+                annual_medical_employer=annual_medical_employer,
                 annual_net_income=annual_net_income,
                 monthly_salary=current_monthly_salary,
                 monthly_tax=annual_tax / 12,
                 monthly_social_security_employee=monthly_ss_employee,
                 monthly_social_security_employer=monthly_ss_employer,
+                monthly_medical_employee=annual_medical_employee / 12,
+                monthly_medical_employer=annual_medical_employer / 12,
                 monthly_net_income=monthly_net_income,
                 currency=plugin.CURRENCY
             ))
