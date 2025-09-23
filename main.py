@@ -236,44 +236,13 @@ class SmartPensionComparisonApp:
             if hasattr(plugin, 'print_detailed_analysis'):
                 plugin.print_detailed_analysis(person, salary_profile, economic_factors, pension_result, local_amount)
             else:
-                # 如果没有详细分析方法，使用默认输出
+                # 如果没有详细分析方法，使用简单输出
                 print(f"\n📊 退休金分析:")
                 print(f"  月退休金: {plugin.format_currency(pension_result.monthly_pension)}")
                 print(f"  总缴费: {plugin.format_currency(pension_result.total_contribution)}")
                 print(f"  ROI: {pension_result.roi:.2f}%")
                 if pension_result.break_even_age:
                     print(f"  回本年龄: {pension_result.break_even_age}岁")
-
-                # 计算税收
-                annual_income = local_amount.amount
-                tax_result = plugin.calculate_tax(annual_income)
-                print(f"\n💰 税务分析:")
-                print(f"  年个税: {plugin.format_currency(tax_result.get('total_tax', 0))}")
-                print(f"  税后年收入: {plugin.format_currency(tax_result.get('net_income', annual_income))}")
-                print(f"  有效税率: {tax_result.get('effective_rate', 0):.1f}%")
-
-                # 计算社保
-                ss_result = plugin.calculate_social_security(local_amount.amount / 12, person.work_years)
-                print(f"\n🏦 社保分析:")
-                if 'monthly_employee' in ss_result:
-                    print(f"  员工月缴费: {plugin.format_currency(ss_result['monthly_employee'])}")
-                if 'monthly_employer' in ss_result:
-                    print(f"  雇主月缴费: {plugin.format_currency(ss_result['monthly_employer'])}")
-                if 'total_lifetime' in ss_result:
-                    print(f"  终身总缴费: {plugin.format_currency(ss_result['total_lifetime'])}")
-
-                # 显示人民币对比
-                print(f"\n💱 人民币对比:")
-                monthly_pension_cny = self.smart_converter.convert_to_local(
-                    CurrencyAmount(pension_result.monthly_pension, plugin.CURRENCY, ""), 
-                    'CNY'
-                )
-                total_contribution_cny = self.smart_converter.convert_to_local(
-                    CurrencyAmount(pension_result.total_contribution, plugin.CURRENCY, ""), 
-                    'CNY'
-                )
-                print(f"  月退休金: {self.smart_converter.format_amount(monthly_pension_cny)}")
-                print(f"  总缴费: {self.smart_converter.format_amount(total_contribution_cny)}")
 
         except Exception as e:
             print(f"❌ 计算失败: {e}")
