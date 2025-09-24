@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import date
 
-from .models import Person, SalaryProfile, EconomicFactors, PensionResult
+from .models import Person, SalaryProfile, EconomicFactors, PensionResult, Gender, EmploymentType
 
 @dataclass
 class PluginConfig:
@@ -34,6 +34,17 @@ class BaseCountryPlugin(ABC):
     def _load_config(self) -> PluginConfig:
         """加载插件配置"""
         pass
+
+    def create_person(self, start_age: int = 30) -> Person:
+        """创建Person对象 - 每个插件可以根据自己的退休年龄调整"""
+        current_year = date.today().year
+        return Person(
+            name=f"{self.COUNTRY_NAME}用户",
+            birth_date=date(current_year - start_age, 1, 1),
+            gender=Gender.MALE,
+            employment_type=EmploymentType.EMPLOYEE,
+            start_work_date=date(current_year, 1, 1)
+        )
 
     @abstractmethod
     def calculate_pension(self,

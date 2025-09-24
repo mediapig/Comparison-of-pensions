@@ -1,0 +1,28 @@
+{
+  "date": "2025-09-24",
+  "timestamp": "2025-09-24T22:18:14.423230",
+  "api_source": "ExchangeRate-API",
+  "base_currency": "CNY",
+  "rates": {
+    "CNY": 1,
+    "AUD": 0.213,
+    "BRL": 0.75,
+    "CAD": 0.194,
+    "CHF": 0.111,
+    "DKK": 0.888,
+    "EUR": 0.119,
+    "GBP": 0.104,
+    "HKD": 1.09,
+    "INR": 12.48,
+    "JPY": 20.76,
+    "KRW": 196.08,
+    "NOK": 1.39,
+    "RUB": 11.76,
+    "SEK": 1.31,
+    "SGD": 0.18,
+    "TWD": 4.26,
+    "USD": 0.141
+  },
+  "cache_version": "1.0",
+  "expires_at": "2025-09-25"
+}

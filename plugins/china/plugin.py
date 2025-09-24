@@ -51,7 +51,7 @@ class ChinaPlugin(BaseCountryPlugin):
         """计算退休金 - 使用优化的7步算法计算器"""
         # 获取退休年龄
         retirement_age = self.get_retirement_age(person)
-        start_age = person.age if person.age > 0 else 30
+        start_age = 30  # 固定从30岁开始工作
         
         # 使用优化的7步算法计算器计算养老金
         annual_income = salary_profile.monthly_salary * 12

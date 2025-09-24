@@ -16,15 +16,15 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 class DailyExchangeRateCache:
-    """每日汇率缓存管理器"""
+    """每日汇率缓存管理器 - 固定JSON文件存储"""
     
     def __init__(self, cache_dir: str = "cache", base_currency: str = "CNY"):
         self.base_currency = base_currency.upper()
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
         
-        # 缓存文件路径
-        self.cache_file = self.cache_dir / f"exchange_rates_{self.base_currency}.json"
+        # 固定缓存文件路径 - 统一使用 exchange_rates.json
+        self.cache_file = self.cache_dir / "exchange_rates.json"
         
         # 支持的货币列表
         self.supported_currencies = {
@@ -113,8 +113,9 @@ class DailyExchangeRateCache:
         return self.default_rates.copy()
     
     def _has_valid_cache(self, target_date: date) -> bool:
-        """检查是否有有效的当日缓存"""
+        """检查是否有有效的当日缓存 - 严格按照一天有效期"""
         if not self.cache_file.exists():
+            logger.info("📁 缓存文件不存在")
             return False
         
         try:
@@ -123,13 +124,21 @@ class DailyExchangeRateCache:
             
             cache_date_str = cache_data.get('date')
             if not cache_date_str:
+                logger.warning("⚠️ 缓存文件缺少日期信息")
                 return False
             
             cache_date = datetime.strptime(cache_date_str, '%Y-%m-%d').date()
-            return cache_date == target_date
+            is_valid = cache_date == target_date
+            
+            if is_valid:
+                logger.info(f"✅ 找到有效的当日缓存: {cache_date_str}")
+            else:
+                logger.info(f"📅 缓存已过期: {cache_date_str} (需要: {target_date})")
+            
+            return is_valid
             
         except (json.JSONDecodeError, ValueError, KeyError) as e:
-            logger.warning(f"缓存文件损坏: {e}")
+            logger.warning(f"❌ 缓存文件损坏: {e}")
             return False
     
     def _fetch_and_cache_rates(self, target_date: date) -> bool:
@@ -164,19 +173,22 @@ class DailyExchangeRateCache:
                     rates = api_config['parser'](data)
                     
                     if rates and len(rates) > 1:  # 确保获取到多个货币的汇率
-                        # 缓存数据
+                        # 缓存数据 - 固定JSON格式
                         cache_data = {
                             'date': target_date.strftime('%Y-%m-%d'),
                             'timestamp': datetime.now().isoformat(),
                             'api_source': api_config['name'],
                             'base_currency': self.base_currency,
-                            'rates': rates
+                            'rates': rates,
+                            'cache_version': '1.0',
+                            'expires_at': (target_date + timedelta(days=1)).strftime('%Y-%m-%d')
                         }
                         
                         self._save_to_cache(cache_data)
                         successful_apis.append(api_config['name'])
-                        logger.info(f"✅ {api_config['name']} 汇率获取成功并已缓存")
+                        logger.info(f"✅ {api_config['name']} 汇率获取成功并已缓存到 {self.cache_file}")
                         logger.info(f"📊 获取到 {len(rates)} 种货币汇率")
+                        logger.info(f"📅 缓存有效期至: {cache_data['expires_at']}")
                         return True
                     else:
                         logger.warning(f"⚠️ {api_config['name']} 返回数据无效")
@@ -196,11 +208,12 @@ class DailyExchangeRateCache:
         return False
     
     def _save_to_cache(self, cache_data: Dict) -> None:
-        """保存数据到缓存文件"""
+        """保存数据到固定JSON缓存文件"""
         try:
             with open(self.cache_file, 'w', encoding='utf-8') as f:
                 json.dump(cache_data, f, ensure_ascii=False, indent=2)
-            logger.debug(f"💾 汇率数据已缓存到: {self.cache_file}")
+            logger.info(f"💾 汇率数据已保存到固定缓存文件: {self.cache_file}")
+            logger.debug(f"📄 缓存文件大小: {self.cache_file.stat().st_size} bytes")
         except Exception as e:
             logger.error(f"❌ 缓存保存失败: {e}")
     
@@ -214,12 +227,13 @@ class DailyExchangeRateCache:
             return None
     
     def get_cache_info(self) -> Dict[str, any]:
-        """获取缓存信息"""
+        """获取缓存信息 - 显示固定JSON文件状态"""
         if not self.cache_file.exists():
             return {
                 'exists': False,
                 'file_path': str(self.cache_file),
-                'message': '缓存文件不存在'
+                'message': '固定缓存文件不存在',
+                'cache_type': 'daily_json'
             }
         
         try:
@@ -233,14 +247,19 @@ class DailyExchangeRateCache:
                     'api_source': cache_data.get('api_source'),
                     'base_currency': cache_data.get('base_currency'),
                     'currencies_count': len(cache_data.get('rates', {})),
-                    'file_size': self.cache_file.stat().st_size
+                    'file_size': self.cache_file.stat().st_size,
+                    'cache_version': cache_data.get('cache_version', 'unknown'),
+                    'expires_at': cache_data.get('expires_at'),
+                    'cache_type': 'daily_json',
+                    'is_valid_today': self._has_valid_cache(date.today())
                 }
         except Exception as e:
             return {
                 'exists': True,
                 'file_path': str(self.cache_file),
                 'error': str(e),
-                'message': '缓存文件损坏'
+                'message': '固定缓存文件损坏',
+                'cache_type': 'daily_json'
             }
     
     def clear_cache(self) -> bool:

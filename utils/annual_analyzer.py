@@ -112,13 +112,14 @@ class AnnualAnalyzer:
         else:
             initial_monthly_salary = local_amount.amount
         
-        # 创建测试数据
+        # 创建测试数据 - 确保当前年份是start_age岁
+        current_year = date.today().year
         person = Person(
             name="分析用户",
-            birth_date=date(2024 - start_age, 1, 1),
+            birth_date=date(current_year - start_age, 1, 1),  # 当前年份时start_age岁
             gender=Gender.MALE,
             employment_type=EmploymentType.EMPLOYEE,
-            start_work_date=date(2024 - start_age, 1, 1)
+            start_work_date=date(current_year, 1, 1)  # 当前年份开始工作
         )
 
         # 获取退休年龄
@@ -274,7 +275,7 @@ class AnnualAnalyzer:
         salary_profile = SalaryProfile(
             monthly_salary=monthly_salary,
             annual_growth_rate=0.03,
-            contribution_start_age=person.age
+            contribution_start_age=start_age  # 使用start_age参数而不是person.age
         )
 
         # 创建经济因素

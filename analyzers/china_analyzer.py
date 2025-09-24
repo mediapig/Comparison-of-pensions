@@ -31,13 +31,13 @@ def analyze_china_only(engine: PensionEngine, scenario_name: str, monthly_salary
     print(f"计发月数: 170个月")
     print(f"{'='*80}")
 
-    # 创建个人信息
+    # 创建个人信息 - 直接按30岁开始工作计算
     person = Person(
         name="测试用户",
-        birth_date=date(1990, 1, 1),
+        birth_date=date(1994, 1, 1),  # 2024年时30岁
         gender=Gender.MALE,
         employment_type=EmploymentType.EMPLOYEE,
-        start_work_date=date(1995, 7, 1)
+        start_work_date=date(2024, 1, 1)  # 2024年开始工作
     )
 
     # 创建工资档案 - 工资每年增长2%
