@@ -69,7 +69,16 @@ class USADetailedAnalyzer:
         # 计算年度数据
         base_salary = salary_profile.base_salary if salary_profile.base_salary is not None else salary_profile.monthly_salary
         annual_salary = base_salary * 12
-        annual_salary_usd = annual_salary * 0.14  # 人民币转美元
+        
+        # 使用智能货币转换器获取汇率
+        if self.smart_converter:
+            from utils.smart_currency_converter import CurrencyAmount
+            cny_amount = CurrencyAmount(annual_salary, "CNY", "")
+            usd_amount = self.smart_converter.convert_to_local(cny_amount, "USD")
+            annual_salary_usd = usd_amount.amount
+        else:
+            # 备用汇率
+            annual_salary_usd = annual_salary * 0.141  # 使用cache中的汇率
 
         # 计算总缴费
         total_ss_contribution = pension_result.details.get('total_ss_contribution', 0) or 0
@@ -156,14 +165,28 @@ class USADetailedAnalyzer:
             },
             "人民币对比": {
                 "退休金收入": {
-                    "月退休金": pension_result.monthly_pension * 7.2  # 美元转人民币
+                    "月退休金": self._convert_usd_to_cny(pension_result.monthly_pension)
                 },
                 "缴费情况": {
-                    "总缴费": total_contribution * 7.2  # 美元转人民币
+                    "总缴费": self._convert_usd_to_cny(total_contribution)
                 }
             }
         }
 
+    def _convert_usd_to_cny(self, usd_amount: float) -> float:
+        """将美元转换为人民币"""
+        if self.smart_converter:
+            try:
+                from utils.smart_currency_converter import CurrencyAmount
+                usd_currency_amount = CurrencyAmount(usd_amount, "USD", "")
+                cny_currency_amount = self.smart_converter.convert_to_local(usd_currency_amount, "CNY")
+                return cny_currency_amount.amount
+            except Exception:
+                # 如果转换失败，使用备用汇率
+                return usd_amount * 7.09  # 1 USD = 7.09 CNY (基于cache中的汇率)
+        else:
+            # 备用汇率
+            return usd_amount * 7.09  # 1 USD = 7.09 CNY
 
     def _format_decimals(self, data):
         """递归格式化所有数字为2位小数"""

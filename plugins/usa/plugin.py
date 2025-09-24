@@ -95,10 +95,17 @@ class USAPlugin(BaseCountryPlugin):
                                salary_profile: SalaryProfile,
                                economic_factors: EconomicFactors) -> Dict[str, float]:
         """计算401k退休金"""
-        # 将人民币月薪转换为美元（假设汇率1 CNY = 0.14 USD）
-        cny_to_usd_rate = 0.14
+        # 使用智能货币转换器获取汇率
+        from utils.smart_currency_converter import SmartCurrencyConverter, CurrencyAmount
+        smart_converter = SmartCurrencyConverter()
+        
         base_salary = salary_profile.base_salary if salary_profile.base_salary is not None else salary_profile.monthly_salary
-        initial_annual_salary_usd = base_salary * 12 * cny_to_usd_rate
+        annual_salary_cny = base_salary * 12
+        
+        # 使用cache中的汇率转换
+        cny_amount = CurrencyAmount(annual_salary_cny, "CNY", "")
+        usd_amount = smart_converter.convert_to_local(cny_amount, "USD")
+        initial_annual_salary_usd = usd_amount.amount
 
         # 计算401k
         k401_result = self.k401_calculator.calculate_401k_lifetime(
@@ -224,10 +231,17 @@ class USAPlugin(BaseCountryPlugin):
                          salary_profile: SalaryProfile,
                          economic_factors: EconomicFactors) -> Dict[str, Any]:
         """获取401k详细分析"""
-        # 将人民币月薪转换为美元
-        cny_to_usd_rate = 0.14
+        # 使用智能货币转换器获取汇率
+        from utils.smart_currency_converter import SmartCurrencyConverter, CurrencyAmount
+        smart_converter = SmartCurrencyConverter()
+        
         base_salary = salary_profile.base_salary if salary_profile.base_salary is not None else salary_profile.monthly_salary
-        initial_annual_salary_usd = base_salary * 12 * cny_to_usd_rate
+        annual_salary_cny = base_salary * 12
+        
+        # 使用cache中的汇率转换
+        cny_amount = CurrencyAmount(annual_salary_cny, "CNY", "")
+        usd_amount = smart_converter.convert_to_local(cny_amount, "USD")
+        initial_annual_salary_usd = usd_amount.amount
 
         # 计算401k
         k401_result = self.k401_calculator.calculate_401k_lifetime(
