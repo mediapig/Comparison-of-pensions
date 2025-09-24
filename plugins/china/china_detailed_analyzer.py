@@ -128,36 +128,32 @@ class ChinaDetailedAnalyzer:
                 "年龄": start_age,
                 "收入情况": {
                     "年收入": annual_income,
-                    "月收入": monthly_salary,
-                    "缴费基数": ss_contribution.contribution_base
+                    "社保缴费基数": ss_contribution.contribution_base,
+                    "年薪上限限制": monthly_salary > self.social_security_calculator.params.social_security_base_upper
                 },
                 "社保缴费": {
-                    "单位缴费": {
-                        "养老": ss_contribution.employer_pension,
-                        "医疗": ss_contribution.employer_medical,
-                        "失业": ss_contribution.employer_unemployment,
-                        "工伤": ss_contribution.employer_injury,
-                        "总计": ss_contribution.employer_total
-                    },
-                    "个人缴费": {
-                        "养老": ss_contribution.employee_pension,
-                        "医疗": ss_contribution.employee_medical,
-                        "失业": ss_contribution.employee_unemployment,
-                        "总计": ss_contribution.employee_total
-                    },
-                    "总缴费": ss_contribution.total_contribution
+                    "雇员费率": (ss_contribution.employee_total / ss_contribution.contribution_base) * 100,
+                    "雇主费率": (ss_contribution.employer_total / ss_contribution.contribution_base) * 100,
+                    "总费率": (ss_contribution.total_contribution / ss_contribution.contribution_base) * 100,
+                    "年缴费金额": ss_contribution.total_contribution * 12,
+                    "雇员缴费": ss_contribution.employee_total * 12,
+                    "雇主缴费": ss_contribution.employer_total * 12
+                },
+                "账户分配": {
+                    "养老保险": ss_contribution.employee_pension * 12,
+                    "医疗保险": ss_contribution.employee_medical * 12,
+                    "失业保险": ss_contribution.employee_unemployment * 12
                 },
                 "住房公积金": {
                     "缴费基数": hf_contribution.contribution_base,
-                    "单位缴费": hf_contribution.employer_contribution,
-                    "个人缴费": hf_contribution.employee_contribution,
-                    "总缴费": hf_contribution.total_contribution
+                    "单位缴费": hf_contribution.employer_contribution * 12,
+                    "个人缴费": hf_contribution.employee_contribution * 12,
+                    "总缴费": hf_contribution.total_contribution * 12
                 },
                 "税务情况": {
                     "应税收入": tax_result.taxable_income,
                     "所得税": tax_result.tax_amount,
-                    "实际到手收入": tax_result.net_income,
-                    "有效税率": tax_result.effective_rate
+                    "实际到手收入": tax_result.net_income
                 }
             },
             "工作期总计": {
@@ -169,13 +165,13 @@ class ChinaDetailedAnalyzer:
                     "实际到手收入": total_salary - total_ss_employee - total_hf_employee - total_tax
                 },
                 "社保缴费总计": {
-                    "个人缴费": total_ss_employee,
-                    "单位缴费": total_ss_employer,
+                    "雇员缴费": total_ss_employee,
+                    "雇主缴费": total_ss_employer,
                     "总缴费": total_ss_employee + total_ss_employer
                 },
                 "住房公积金总计": {
-                    "个人缴费": total_hf_employee,
-                    "单位缴费": total_hf_employer,
+                    "雇员缴费": total_hf_employee,
+                    "雇主缴费": total_hf_employer,
                     "总缴费": total_hf_employee + total_hf_employer
                 }
             },
