@@ -217,7 +217,7 @@ class SmartPensionComparisonApp:
         )
 
         salary_profile = SalaryProfile(
-            monthly_salary=local_amount.amount / 12,  # 将年薪转换为月薪
+            monthly_salary=local_amount.amount,  # local_amount.amount 已经是月薪
             annual_growth_rate=0.03,
             contribution_start_age=22
         )
@@ -282,7 +282,7 @@ class SmartPensionComparisonApp:
                 local_amount = self.smart_converter.convert_to_local(currency_amount, plugin.CURRENCY)
 
                 salary_profile = SalaryProfile(
-                    monthly_salary=local_amount.amount / 12,  # 将年薪转换为月薪
+                    monthly_salary=local_amount.amount,  # local_amount.amount 已经是月薪
                     annual_growth_rate=0.03,
                     contribution_start_age=22
                 )
