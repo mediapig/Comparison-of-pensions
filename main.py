@@ -207,19 +207,13 @@ class SmartPensionComparisonApp:
         print(f"输入金额: {self.smart_converter.format_amount(currency_amount)}")
         print(f"本地货币: {self.smart_converter.format_amount(local_amount)}")
 
-        # 创建测试数据
-        person = Person(
-            name="用户",
-            birth_date=date(1994, 1, 1),
-            gender=Gender.MALE,
-            employment_type=EmploymentType.EMPLOYEE,
-            start_work_date=date(2024, 1, 1)
-        )
-
+        # 让插件自己创建Person对象，因为每个国家的退休年龄不同
+        person = plugin.create_person(start_age=30)
+        
         salary_profile = SalaryProfile(
             monthly_salary=local_amount.amount / 12,  # 年薪转月薪
             annual_growth_rate=0.03,
-            contribution_start_age=22
+            contribution_start_age=30  # 固定从30岁开始工作
         )
 
         economic_factors = EconomicFactors(
@@ -252,14 +246,9 @@ class SmartPensionComparisonApp:
         print(f"=== 多国对比分析 ({', '.join(countries)}) ===")
         print(f"输入金额: {self.smart_converter.format_amount(currency_amount)}")
 
-        # 创建测试数据
-        person = Person(
-            name="对比用户",
-            birth_date=date(1994, 1, 1),
-            gender=Gender.MALE,
-            employment_type=EmploymentType.EMPLOYEE,
-            start_work_date=date(2024, 1, 1)
-        )
+        # 创建测试数据 - 使用第一个插件创建Person对象
+        first_plugin = self.plugin_manager.get_plugin(countries[0])
+        person = first_plugin.create_person(start_age=30)
 
         economic_factors = EconomicFactors(
             inflation_rate=0.02,

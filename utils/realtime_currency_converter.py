@@ -90,7 +90,20 @@ class RealtimeCurrencyConverter:
         ]
 
     def get_exchange_rates(self, force_update: bool = False) -> Dict[str, float]:
-        """获取汇率数据"""
+        """获取汇率数据 - 优先使用每日缓存"""
+        # 优先使用每日缓存系统
+        try:
+            cached_rates = self.daily_cache.get_exchange_rates(force_update)
+            if cached_rates:
+                # 同步到内存缓存
+                self.exchange_rates = cached_rates
+                self.last_update = datetime.now()
+                logger.info("✅ 使用每日缓存汇率数据")
+                return cached_rates
+        except Exception as e:
+            logger.warning(f"⚠️ 每日缓存获取失败，回退到实时API: {e}")
+        
+        # 回退到原有的实时API机制
         current_time = datetime.now()
         
         # 检查是否需要更新

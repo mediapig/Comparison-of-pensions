@@ -97,6 +97,7 @@ class RetirementResult:
     
     total_benefits: float
     roi: float
+    irr: float  # 新增IRR字段
     break_even_age: Optional[float]
 
 
@@ -158,12 +159,20 @@ class ChinaOptimizedCalculator:
         emp_hf = hf_base_month * hf_rate * 12
         er_hf = hf_base_month * hf_rate * 12
         
-        # STEP 4: 个税
-        taxable_income = gross_income - self.params.basic_deduction - emp_total_si - emp_hf
+        # STEP 4: 个税 - 按照用户提供的正确公式
+        # 个人三险（不含公积金）
+        emp_si = emp_pension + emp_medical + emp_unemp
+        
+        # 个税：只减一次公积金
+        taxable_income = max(0, gross_income - self.params.basic_deduction - emp_si - emp_hf)
         tax_amount = self._calculate_tax(taxable_income)
         
-        # STEP 5: 到手工资
-        net_income = gross_income - emp_total_si - emp_hf - tax_amount
+        # STEP 5: 到手工资 - 添加断言验证
+        net_income = gross_income - emp_si - emp_hf - tax_amount
+        
+        # 验证恒等式
+        assert abs((net_income + emp_si + emp_hf + tax_amount) - gross_income) < 1e-6, \
+            f"到手工资计算错误: {net_income} + {emp_si} + {emp_hf} + {tax_amount} != {gross_income}"
         
         # STEP 6: 累计账户（这里返回当年缴费，累计在外部处理）
         pension_account_balance = emp_pension  # 个人账户只计入个人缴费
@@ -179,7 +188,7 @@ class ChinaOptimizedCalculator:
             emp_pension=emp_pension,
             emp_medical=emp_medical,
             emp_unemp=emp_unemp,
-            emp_total_si=emp_total_si,
+            emp_total_si=emp_si,  # 使用修正后的个人三险
             er_pension=er_pension,
             er_medical=er_medical,
             er_unemp=er_unemp,
@@ -247,11 +256,15 @@ class ChinaOptimizedCalculator:
         monthly_pension = self._calculate_monthly_pension(pension_account_balance, work_years)
         annual_pension = monthly_pension * 12
         
-        # 总收益计算
-        total_benefits = annual_pension * (90 - self.params.retirement_age) + housing_fund_balance
+        # 总收益计算 - 只计算个人实际收益
+        retirement_years = 90 - self.params.retirement_age  # 退休后30年
+        total_benefits = annual_pension * retirement_years + housing_fund_balance
         
-        # ROI计算
+        # ROI计算 - 只基于个人缴费
         roi = (total_benefits - total_employee_contributions) / total_employee_contributions if total_employee_contributions > 0 else 0
+        
+        # IRR计算 - 正确的现金流方向
+        irr = self._calculate_irr(yearly_results, housing_fund_balance, monthly_pension)
         
         # 回本年龄
         break_even_age = None
@@ -272,6 +285,7 @@ class ChinaOptimizedCalculator:
             annual_pension=annual_pension,
             total_benefits=total_benefits,
             roi=roi,
+            irr=irr,  # 添加IRR
             break_even_age=break_even_age
         )
     
@@ -312,6 +326,94 @@ class ChinaOptimizedCalculator:
         personal_account_pension = pension_account_balance / 139
         
         return basic_pension + personal_account_pension
+    
+    def _calculate_irr(self, yearly_results: List[YearlyCalculationResult], 
+                      housing_fund_balance: float, monthly_pension: float) -> float:
+        """
+        计算IRR - 基于正确的现金流方向
+        
+        Args:
+            yearly_results: 逐年计算结果
+            housing_fund_balance: 公积金余额
+            monthly_pension: 月养老金
+            
+        Returns:
+            IRR (年化收益率)
+        """
+        try:
+            # 构建现金流：工作期为负（个人缴费），退休期为正（养老金）
+            cash_flows = []
+            
+            # 工作期现金流（负值 - 个人缴费）
+            for result in yearly_results:
+                # 个人缴费作为负现金流
+                personal_contribution = result.emp_total_si + result.emp_hf
+                cash_flows.append(-personal_contribution)
+            
+            # 退休期现金流（正值 - 养老金收入）
+            retirement_years = 90 - self.params.retirement_age
+            annual_pension = monthly_pension * 12
+            
+            for year in range(int(retirement_years)):
+                if year == 0:
+                    # 第一年退休：养老金 + 公积金一次性提取
+                    cash_flows.append(annual_pension + housing_fund_balance)
+                else:
+                    # 后续年份：只有养老金
+                    cash_flows.append(annual_pension)
+            
+            # 使用简化的IRR计算（二分法）
+            return self._simple_irr(cash_flows)
+            
+        except Exception as e:
+            print(f"IRR计算失败: {e}")
+            return 0.0
+    
+    def _simple_irr(self, cash_flows: List[float], precision: float = 1e-6) -> float:
+        """
+        简化的IRR计算（二分法）
+        
+        Args:
+            cash_flows: 现金流列表
+            precision: 精度
+            
+        Returns:
+            IRR (年化收益率)
+        """
+        if len(cash_flows) < 2:
+            return 0.0
+        
+        # 检查是否有正负现金流
+        has_positive = any(cf > 0 for cf in cash_flows)
+        has_negative = any(cf < 0 for cf in cash_flows)
+        
+        if not (has_positive and has_negative):
+            return 0.0
+        
+        # 二分法求解IRR
+        low_rate = -0.99  # 最低-99%
+        high_rate = 10.0   # 最高1000%
+        
+        for _ in range(100):  # 最多迭代100次
+            mid_rate = (low_rate + high_rate) / 2
+            npv = self._calculate_npv(cash_flows, mid_rate)
+            
+            if abs(npv) < precision:
+                return mid_rate
+            
+            if npv > 0:
+                low_rate = mid_rate
+            else:
+                high_rate = mid_rate
+        
+        return (low_rate + high_rate) / 2
+    
+    def _calculate_npv(self, cash_flows: List[float], rate: float) -> float:
+        """计算净现值"""
+        npv = 0.0
+        for i, cf in enumerate(cash_flows):
+            npv += cf / ((1 + rate) ** i)
+        return npv
     
     def get_detailed_breakdown(self, initial_gross_income: float, 
                               salary_growth_rate: float = 0.02,

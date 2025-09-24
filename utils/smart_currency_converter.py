@@ -10,6 +10,7 @@ from typing import Dict, Tuple, Optional, Union
 from dataclasses import dataclass
 from .currency_converter import CurrencyConverter
 from .realtime_currency_converter import RealtimeCurrencyConverter
+from .daily_exchange_rate_cache import DailyExchangeRateCache
 
 @dataclass
 class CurrencyAmount:
@@ -27,6 +28,7 @@ class SmartCurrencyConverter:
     def __init__(self):
         self.converter = CurrencyConverter("CNY")
         self.realtime_converter = RealtimeCurrencyConverter("CNY")
+        self.daily_cache = DailyExchangeRateCache("CNY")
         
         # 支持的货币映射
         self.currency_map = {
@@ -165,7 +167,7 @@ class SmartCurrencyConverter:
 
     def convert_to_local(self, amount: CurrencyAmount, target_currency: str) -> CurrencyAmount:
         """
-        将货币金额转换为目标货币（使用实时汇率）
+        将货币金额转换为目标货币（优先使用每日缓存）
         
         Args:
             amount: 原始货币金额
@@ -178,20 +180,29 @@ class SmartCurrencyConverter:
             return amount
         
         try:
-            # 优先使用实时汇率
-            converted_amount = self.realtime_converter.convert(
+            # 优先使用每日缓存汇率
+            converted_amount = self.daily_cache.convert(
                 amount.amount, 
                 amount.currency, 
                 target_currency
             )
         except Exception as e:
-            # 如果实时汇率失败，使用默认汇率
-            print(f"⚠️ 实时汇率获取失败，使用默认汇率: {e}")
-            converted_amount = self.converter.convert(
-                amount.amount, 
-                amount.currency, 
-                target_currency
-            )
+            print(f"⚠️ 每日缓存汇率获取失败，尝试实时汇率: {e}")
+            try:
+                # 回退到实时汇率
+                converted_amount = self.realtime_converter.convert(
+                    amount.amount, 
+                    amount.currency, 
+                    target_currency
+                )
+            except Exception as e2:
+                # 如果实时汇率也失败，使用默认汇率
+                print(f"⚠️ 实时汇率也失败，使用默认汇率: {e2}")
+                converted_amount = self.converter.convert(
+                    amount.amount, 
+                    amount.currency, 
+                    target_currency
+                )
         
         return CurrencyAmount(
             amount=converted_amount,
@@ -251,6 +262,18 @@ class SmartCurrencyConverter:
     def test_realtime_connection(self) -> Dict[str, bool]:
         """测试实时汇率连接"""
         return self.realtime_converter.test_api_connection()
+    
+    def get_cache_status(self) -> Dict[str, any]:
+        """获取缓存状态信息"""
+        return self.daily_cache.get_cache_info()
+    
+    def clear_cache(self) -> bool:
+        """清除汇率缓存"""
+        return self.daily_cache.clear_cache()
+    
+    def force_update_cache(self) -> Dict[str, float]:
+        """强制更新汇率缓存"""
+        return self.daily_cache.get_exchange_rates(force_update=True)
 
 # 创建全局智能货币转换器实例
 smart_converter = SmartCurrencyConverter()
