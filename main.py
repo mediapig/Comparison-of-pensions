@@ -210,10 +210,10 @@ class SmartPensionComparisonApp:
         # 创建测试数据
         person = Person(
             name="用户",
-            birth_date=date(1985, 1, 1),
+            birth_date=date(1994, 1, 1),  # 30岁开始工作
             gender=Gender.MALE,
             employment_type=EmploymentType.EMPLOYEE,
-            start_work_date=date(2010, 1, 1)
+            start_work_date=date(2024, 1, 1)
         )
 
         salary_profile = SalaryProfile(
@@ -255,10 +255,10 @@ class SmartPensionComparisonApp:
         # 创建测试数据
         person = Person(
             name="对比用户",
-            birth_date=date(1985, 1, 1),
+            birth_date=date(1994, 1, 1),  # 30岁开始工作
             gender=Gender.MALE,
             employment_type=EmploymentType.EMPLOYEE,
-            start_work_date=date(2010, 1, 1)
+            start_work_date=date(2024, 1, 1)
         )
 
         economic_factors = EconomicFactors(
