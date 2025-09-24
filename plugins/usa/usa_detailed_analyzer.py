@@ -68,17 +68,7 @@ class USADetailedAnalyzer:
 
         # 计算年度数据
         base_salary = salary_profile.base_salary if salary_profile.base_salary is not None else salary_profile.monthly_salary
-        annual_salary = base_salary * 12
-        
-        # 使用智能货币转换器获取汇率
-        if self.smart_converter:
-            from utils.smart_currency_converter import CurrencyAmount
-            cny_amount = CurrencyAmount(annual_salary, "CNY", "")
-            usd_amount = self.smart_converter.convert_to_local(cny_amount, "USD")
-            annual_salary_usd = usd_amount.amount
-        else:
-            # 备用汇率
-            annual_salary_usd = annual_salary * 0.141  # 使用cache中的汇率
+        annual_salary_usd = base_salary * 12  # 直接使用，因为已经是美元
 
         # 计算总缴费
         total_ss_contribution = pension_result.details.get('total_ss_contribution', 0) or 0
