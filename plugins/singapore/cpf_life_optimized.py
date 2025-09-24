@@ -142,6 +142,7 @@ class CPFLifeOptimizedCalculator:
         # --- 计算目标月领曲线（先定"应发金额"，再逐月结转两桶）---
         if plan == "standard":
             # 等额年金：用 premium 为现值、R_PREM 为贴现、长寿期限为（horizon_age - start_age）
+            # 确保在horizon_age时余额为0
             m0 = self.annuity_pmt(PV=premium, annual_rate=self.r_prem, 
                                 years=(horizon_age - start_age))
             desired_payout = [m0] * months
