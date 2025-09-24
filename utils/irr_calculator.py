@@ -14,8 +14,7 @@ class IRRCalculator:
     """IRR计算器 - 修正版"""
     
     @staticmethod
-    def calculate_irr(cash_flows: List[float], 
-                    guess: float = 0.1) -> Optional[float]:
+    def calculate_irr(cash_flows: List[float], guess: float = 0.1) -> Optional[float]:
         """
         计算内部收益率 (IRR)
         
@@ -215,6 +214,12 @@ class IRRCalculator:
     @staticmethod
     def _calculate_terminal_value(annual_salary: float, start_age: int, retirement_age: int, terminal_age: int) -> float:
         """计算终值（90岁时的剩余余额）"""
+        terminal_accounts = IRRCalculator._calculate_terminal_accounts(annual_salary, start_age, retirement_age, terminal_age)
+        return terminal_accounts['total']
+    
+    @staticmethod
+    def _calculate_terminal_accounts(annual_salary: float, start_age: int, retirement_age: int, terminal_age: int) -> Dict[str, float]:
+        """计算90岁时各账户的详细余额"""
         work_years = retirement_age - start_age
         OA = 0
         SA = 0
@@ -246,8 +251,13 @@ class IRRCalculator:
             OA_remaining = OA * 0.5
             MA = MA
         
-        # 终值 = OA剩余 + MA余额
-        return OA_remaining + MA
+        return {
+            'OA': OA_remaining,
+            'SA': 0,  # SA已转入RA
+            'MA': MA,
+            'RA': 0,  # RA已用于年金
+            'total': OA_remaining + MA
+        }
     
     @staticmethod
     def calculate_cpf_irr(monthly_salary: float,
@@ -286,11 +296,16 @@ class IRRCalculator:
         total_benefits = sum([cf for cf in cash_flows if cf > 0])
         net_benefit = total_benefits - total_employee_contrib
         
+        # 计算90岁时各账户余额
+        annual_salary = monthly_salary * 12
+        terminal_accounts = IRRCalculator._calculate_terminal_accounts(annual_salary, start_age, retirement_age, terminal_age)
+        
         return {
             'irr': irr_value,
             'npv': npv_value,
             'cash_flows': cash_flows,
             'cash_flow_details': cash_flow_data['cash_flow_details'],
+            'terminal_accounts': terminal_accounts,
             'summary': {
                 'total_employee_contributions': total_employee_contrib,
                 'total_benefits': total_benefits,

@@ -34,6 +34,7 @@ def analyze_hongkong_only(engine: PensionEngine, scenario_name: str, monthly_sal
     print(f"月退休金: {converter.format_amount(result.monthly_pension, 'HK')}" )
     print(f"总缴费: {converter.format_amount(result.total_contribution, 'HK')}" )
     print(f"总收益: {converter.format_amount(result.total_benefit, 'HK')}" )
+    print(f"退休当年账户余额: {converter.format_amount(result.retirement_account_balance, 'HK')}" )
     print(f"投资回报率: {result.roi:.1%}" )
     print(f"回本年龄: {result.break_even_age}岁" if result.break_even_age else "回本年龄: 无法计算")
 

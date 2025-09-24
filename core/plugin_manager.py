@@ -35,7 +35,7 @@ class PluginManager:
 
         # 遍历所有插件目录
         for plugin_dir in plugins_dir.iterdir():
-            if not plugin_dir.is_dir() or plugin_dir.name.startswith('.'):
+            if not plugin_dir.is_dir() or plugin_dir.name.startswith('.') or plugin_dir.name == '__pycache__':
                 continue
 
             plugin_name = plugin_dir.name

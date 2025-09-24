@@ -69,6 +69,7 @@ class ChinaPensionCalculator:
             monthly_pension=result['total_pension'],
             total_contribution=total_employee_contrib,
             total_benefit=total_benefit,
+            retirement_account_balance=result['personal_account_balance'],
             break_even_age=break_even_age,
             roi=roi_pct,
             original_currency="CNY",

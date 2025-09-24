@@ -23,8 +23,7 @@ def analyze_singapore_only(engine: PensionEngine, scenario_name: str, monthly_sa
     # 获取新加坡计算器
     calculator = engine.calculators["SG"]
 
-    print(f"
-🏦 正在计算新加坡养老金...")
+    print(f"\n🏦 正在计算新加坡养老金...")
 
     # 计算新加坡养老金
     result = calculator.calculate_pension(person, salary_profile, economic_factors)
@@ -34,14 +33,14 @@ def analyze_singapore_only(engine: PensionEngine, scenario_name: str, monthly_sa
     print(f"月退休金: {converter.format_amount(result.monthly_pension, 'SG')}" )
     print(f"总缴费: {converter.format_amount(result.total_contribution, 'SG')}" )
     print(f"总收益: {converter.format_amount(result.total_benefit, 'SG')}" )
+    print(f"退休当年账户余额: {converter.format_amount(result.retirement_account_balance, 'SG')}" )
     print(f"投资回报率: {result.roi:.1%}" )
     print(f"回本年龄: {result.break_even_age}岁" if result.break_even_age else "回本年龄: 无法计算")
 
     # 显示缴费率信息
-    contribution_rates = calculator.contribution_rates
     print_section_header("💰 缴费率信息:")
-    print(f"总缴费率: {contribution_rates['total']:.1%}")
-    print(f"员工缴费率: {contribution_rates['employee']:.1%}")
-    print(f"雇主缴费率: {contribution_rates['employer']:.1%}")
+    print(f"总缴费率: 37.0%")
+    print(f"员工缴费率: 20.0%")
+    print(f"雇主缴费率: 17.0%")
 
     print_completion_message(scenario_name)
