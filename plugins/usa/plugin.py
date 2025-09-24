@@ -18,9 +18,11 @@ from .pension_calculator import USAPensionCalculator
 try:
     from .usa_401k_calculator import USA401kCalculator, create_401k_calculator
     from .usa_401k_params import get_401k_params
+    from .usa_detailed_analyzer import USADetailedAnalyzer
 except ImportError:
     from usa_401k_calculator import USA401kCalculator, create_401k_calculator
     from usa_401k_params import get_401k_params
+    from usa_detailed_analyzer import USADetailedAnalyzer
 
 class USAPlugin(BaseCountryPlugin):
     """美国插件 - 合并版本"""
@@ -34,6 +36,7 @@ class USAPlugin(BaseCountryPlugin):
         self.tax_calculator = USATaxCalculator()
         self.pension_calculator = USAPensionCalculator()
         self.k401_calculator = create_401k_calculator(2025)  # 使用2025年参数
+        self.detailed_analyzer = USADetailedAnalyzer()
 
     def _load_config(self) -> PluginConfig:
         """加载配置"""
@@ -257,9 +260,20 @@ class USAPlugin(BaseCountryPlugin):
             }
         }
 
-    def get_contribution_scenarios(self,
-                                 annual_salary: float,
-                                 years: int = 35,
+    def get_contribution_scenarios(self, 
+                                 annual_salary: float, 
+                                 years: int = 35, 
                                  investment_rate: float = 0.07) -> List[Dict[str, Any]]:
         """获取不同缴费比例的401K场景分析"""
         return self.k401_calculator.get_contribution_scenarios(annual_salary, years, investment_rate)
+    
+    def print_detailed_analysis(self,
+                               person: Person,
+                               salary_profile: SalaryProfile,
+                               economic_factors: EconomicFactors,
+                               pension_result: PensionResult,
+                               local_amount: CurrencyAmount):
+        """打印详细的美国社保和401k分析"""
+        self.detailed_analyzer.print_detailed_analysis(
+            self, person, salary_profile, economic_factors, pension_result, local_amount
+        )
