@@ -141,11 +141,11 @@ class SingaporePlugin(BaseCountryPlugin):
                     'ma_total': lifetime_result['total_ma']
                 },
                 'cpf_payout': {
-                    'monthly_payment': payout_result.monthly_payment,
-                    'total_payments': payout_result.total_payments,
-                    'total_interest': payout_result.total_interest,
-                    'payout_years': payout_result.payout_years,
-                    'scheme': 'level'
+                    'monthly_payment': monthly_pension,
+                    'total_payments': total_benefit,
+                    'total_interest': total_benefit - total_ra_balance if total_ra_balance > 0 else 0,
+                    'payout_years': 25,  # 65-90岁，25年
+                    'scheme': 'standard'
                 },
                 'irr_analysis': {
                     'irr_value': irr_value,
