@@ -52,7 +52,7 @@ class ChinaDetailedAnalyzer:
         work_years = retirement_age - start_age
         
         # 计算第一年数据
-        monthly_salary = local_amount.amount
+        monthly_salary = salary_profile.monthly_salary
         
         # 社保缴费
         ss_contribution = self.social_security_calculator.calculate_social_security_contribution(monthly_salary)
