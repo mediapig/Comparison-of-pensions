@@ -1,0 +1,500 @@
+# PolicyEngine Singapore Parameters
+# Based on official Singapore government sources and PolicyEngine structure
+
+# CPF Parameters
+cpf:
+  description: Central Provident Fund parameters
+  metadata:
+    reference:
+      - title: CPF Act, First Schedule
+        href: https://sso.agc.gov.sg/Act/CPFA1953
+      - title: CPF Contribution Rates
+        href: https://www.cpf.gov.sg/employer/employer-obligations/cpf-contributions/cpf-contribution-rates
+
+  # Contribution rates by age
+  contribution_rates:
+    employee:
+      age_55_and_below:
+        description: Employee contribution rate for age 55 and below
+        values:
+          2024-01-01: 0.20
+      age_55_to_60:
+        description: Employee contribution rate for age 55 to 60
+        values:
+          2024-01-01: 0.13
+      age_60_to_65:
+        description: Employee contribution rate for age 60 to 65
+        values:
+          2024-01-01: 0.075
+      above_age_65:
+        description: Employee contribution rate for above age 65
+        values:
+          2024-01-01: 0.05
+
+    employer:
+      age_55_and_below:
+        description: Employer contribution rate for age 55 and below
+        values:
+          2024-01-01: 0.17
+      age_55_to_60:
+        description: Employer contribution rate for age 55 to 60
+        values:
+          2024-01-01: 0.13
+      age_60_to_65:
+        description: Employer contribution rate for age 60 to 65
+        values:
+          2024-01-01: 0.09
+      above_age_65:
+        description: Employer contribution rate for above age 65
+        values:
+          2024-01-01: 0.075
+
+  # Account allocation by age
+  account_allocation:
+    age_35_and_below:
+      description: CPF account allocation for age 35 and below
+      children:
+        ordinary_account:
+          description: Ordinary Account allocation
+          values:
+            2024-01-01: 0.62
+        special_account:
+          description: Special Account allocation
+          values:
+            2024-01-01: 0.16
+        medisave_account:
+          description: Medisave Account allocation
+          values:
+            2024-01-01: 0.22
+
+    age_35_to_45:
+      description: CPF account allocation for age 35 to 45
+      children:
+        ordinary_account:
+          description: Ordinary Account allocation
+          values:
+            2024-01-01: 0.62
+        special_account:
+          description: Special Account allocation
+          values:
+            2024-01-01: 0.16
+        medisave_account:
+          description: Medisave Account allocation
+          values:
+            2024-01-01: 0.22
+
+    age_45_to_50:
+      description: CPF account allocation for age 45 to 50
+      children:
+        ordinary_account:
+          description: Ordinary Account allocation
+          values:
+            2024-01-01: 0.62
+        special_account:
+          description: Special Account allocation
+          values:
+            2024-01-01: 0.16
+        medisave_account:
+          description: Medisave Account allocation
+          values:
+            2024-01-01: 0.22
+
+    age_50_to_55:
+      description: CPF account allocation for age 50 to 55
+      children:
+        ordinary_account:
+          description: Ordinary Account allocation
+          values:
+            2024-01-01: 0.62
+        special_account:
+          description: Special Account allocation
+          values:
+            2024-01-01: 0.16
+        medisave_account:
+          description: Medisave Account allocation
+          values:
+            2024-01-01: 0.22
+
+    age_55_to_60:
+      description: CPF account allocation for age 55 to 60
+      children:
+        ordinary_account:
+          description: Ordinary Account allocation
+          values:
+            2024-01-01: 0.21
+        special_account:
+          description: Special Account allocation
+          values:
+            2024-01-01: 0.07
+        medisave_account:
+          description: Medisave Account allocation
+          values:
+            2024-01-01: 0.72
+
+    age_60_to_65:
+      description: CPF account allocation for age 60 to 65
+      children:
+        ordinary_account:
+          description: Ordinary Account allocation
+          values:
+            2024-01-01: 0.12
+        special_account:
+          description: Special Account allocation
+          values:
+            2024-01-01: 0.04
+        medisave_account:
+          description: Medisave Account allocation
+          values:
+            2024-01-01: 0.84
+
+    above_age_65:
+      description: CPF account allocation for above age 65
+      children:
+        ordinary_account:
+          description: Ordinary Account allocation
+          values:
+            2024-01-01: 0.01
+        special_account:
+          description: Special Account allocation
+          values:
+            2024-01-01: 0.01
+        medisave_account:
+          description: Medisave Account allocation
+          values:
+            2024-01-01: 0.98
+
+  # CPF limits and ceilings
+  limits:
+    ordinary_wage_ceiling:
+      description: Monthly Ordinary Wage ceiling
+      metadata:
+        unit: currency-SGD
+        period: month
+      values:
+        2024-01-01: 8000
+
+    additional_wage_ceiling:
+      description: Annual Additional Wage ceiling
+      metadata:
+        unit: currency-SGD
+        period: year
+      values:
+        2024-01-01: 102000
+
+    basic_healthcare_sum:
+      description: Basic Healthcare Sum (BHS)
+      metadata:
+        unit: currency-SGD
+        period: year
+      values:
+        2024-01-01: 71500
+
+    full_retirement_sum:
+      description: Full Retirement Sum (FRS)
+      metadata:
+        unit: currency-SGD
+        period: year
+      values:
+        2024-01-01: 205800
+
+  # Interest rates
+  interest_rates:
+    ordinary_account:
+      description: Ordinary Account interest rate
+      metadata:
+        unit: /1
+        period: year
+      values:
+        2024-01-01: 0.025
+
+    special_account:
+      description: Special Account interest rate
+      metadata:
+        unit: /1
+        period: year
+      values:
+        2024-01-01: 0.04
+
+    medisave_account:
+      description: Medisave Account interest rate
+      metadata:
+        unit: /1
+        period: year
+      values:
+        2024-01-01: 0.04
+
+    retirement_account:
+      description: Retirement Account interest rate
+      metadata:
+        unit: /1
+        period: year
+      values:
+        2024-01-01: 0.04
+
+    extra_interest:
+      description: Extra interest rate on first $60k
+      metadata:
+        unit: /1
+        period: year
+      values:
+        2024-01-01: 0.01
+
+    extra_interest_threshold:
+      description: Threshold for extra interest
+      metadata:
+        unit: currency-SGD
+        period: year
+      values:
+        2024-01-01: 60000
+
+    oa_extra_interest_limit:
+      description: OA extra interest limit
+      metadata:
+        unit: currency-SGD
+        period: year
+      values:
+        2024-01-01: 20000
+
+# Income Tax Parameters
+income_tax:
+  description: Singapore personal income tax parameters
+  metadata:
+    reference:
+      - title: Income Tax Act, Section 43
+        href: https://sso.agc.gov.sg/Act/ITA1947
+      - title: IRAS Tax Rates for Individuals (Residents)
+        href: https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-rates
+
+  # Tax brackets
+  brackets:
+    - rate:
+        2024-01-01: 0.00
+      threshold:
+        2024-01-01: 0
+    - rate:
+        2024-01-01: 0.02
+      threshold:
+        2024-01-01: 20000
+    - rate:
+        2024-01-01: 0.035
+      threshold:
+        2024-01-01: 30000
+    - rate:
+        2024-01-01: 0.07
+      threshold:
+        2024-01-01: 40000
+    - rate:
+        2024-01-01: 0.115
+      threshold:
+        2024-01-01: 80000
+    - rate:
+        2024-01-01: 0.15
+      threshold:
+        2024-01-01: 120000
+    - rate:
+        2024-01-01: 0.18
+      threshold:
+        2024-01-01: 160000
+    - rate:
+        2024-01-01: 0.19
+      threshold:
+        2024-01-01: 200000
+    - rate:
+        2024-01-01: 0.195
+      threshold:
+        2024-01-01: 240000
+    - rate:
+        2024-01-01: 0.20
+      threshold:
+        2024-01-01: 280000
+    - rate:
+        2024-01-01: 0.22
+      threshold:
+        2024-01-01: 320000
+    - rate:
+        2024-01-01: 0.24
+      threshold:
+        2024-01-01: 500000
+    - rate:
+        2024-01-01: 0.245
+      threshold:
+        2024-01-01: 1000000
+
+  # Tax reliefs
+  reliefs:
+    earned_income:
+      description: Earned income relief
+      metadata:
+        unit: currency-SGD
+        period: year
+      values:
+        2024-01-01: 1000
+
+    cpf_relief_cap:
+      description: CPF relief cap
+      metadata:
+        unit: currency-SGD
+        period: year
+      values:
+        2024-01-01: 8000
+
+    spouse_relief:
+      description: Spouse relief
+      metadata:
+        unit: currency-SGD
+        period: year
+      values:
+        2024-01-01: 2000
+
+    child_relief:
+      description: Child relief per child
+      metadata:
+        unit: currency-SGD
+        period: year
+      values:
+        2024-01-01: 4000
+
+    parent_relief:
+      description: Parent relief per parent
+      metadata:
+        unit: currency-SGD
+        period: year
+      values:
+        2024-01-01: 1500
+
+    donation_multiplier:
+      description: Donation relief multiplier
+      metadata:
+        unit: /1
+        period: year
+      values:
+        2024-01-01: 2.5
+
+    overall_relief_cap:
+      description: Overall relief cap
+      metadata:
+        unit: currency-SGD
+        period: year
+      values:
+        2024-01-01: 80000
+
+# GST Parameters
+gst:
+  description: Goods and Services Tax parameters
+  metadata:
+    reference:
+      - title: GST Act
+        href: https://sso.agc.gov.sg/Act/GSTA1993
+      - title: IRAS GST Rates
+        href: https://www.iras.gov.sg/taxes/goods-services-tax-(gst)/gst-rates
+
+  rate:
+    description: GST rate
+    metadata:
+      unit: /1
+      period: year
+    values:
+      2024-01-01: 0.09  # 9% GST rate
+
+# WorkFare Income Supplement Parameters
+workfare:
+  description: WorkFare Income Supplement parameters
+  metadata:
+    reference:
+      - title: WorkFare Income Supplement
+        href: https://www.workfare.gov.sg/
+
+  income_ceiling:
+    description: Monthly income ceiling for WIS
+    metadata:
+      unit: currency-SGD
+      period: month
+    values:
+      2024-01-01: 2500
+
+  age_threshold:
+    description: Minimum age for WIS
+    metadata:
+      unit: year
+      period: year
+    values:
+      2024-01-01: 35
+
+  rates:
+    age_35_to_44:
+      description: WIS rate for age 35 to 44
+      metadata:
+        unit: /1
+        period: year
+      values:
+        2024-01-01: 0.20
+
+    age_45_to_54:
+      description: WIS rate for age 45 to 54
+      metadata:
+        unit: /1
+        period: year
+      values:
+        2024-01-01: 0.30
+
+    age_55_to_59:
+      description: WIS rate for age 55 to 59
+      metadata:
+        unit: /1
+        period: year
+      values:
+        2024-01-01: 0.40
+
+    age_60_and_above:
+      description: WIS rate for age 60 and above
+      metadata:
+        unit: /1
+        period: year
+      values:
+        2024-01-01: 0.50
+
+# ComCare Parameters
+comcare:
+  description: ComCare social assistance parameters
+  metadata:
+    reference:
+      - title: ComCare
+        href: https://www.msf.gov.sg/assistance/comcare
+
+  short_term_assistance:
+    description: Short-term assistance parameters
+    children:
+      income_ceiling:
+        description: Monthly household income ceiling
+        metadata:
+          unit: currency-SGD
+          period: month
+        values:
+          2024-01-01: 1900
+
+      assistance_amount:
+        description: Monthly assistance amount
+        metadata:
+          unit: currency-SGD
+          period: month
+        values:
+          2024-01-01: 500
+
+  long_term_assistance:
+    description: Long-term assistance parameters
+    children:
+      income_ceiling:
+        description: Monthly household income ceiling
+        metadata:
+          unit: currency-SGD
+          period: month
+        values:
+          2024-01-01: 1900
+
+      assistance_amount:
+        description: Monthly assistance amount
+        metadata:
+          unit: currency-SGD
+          period: month
+        values:
+          2024-01-01: 600
