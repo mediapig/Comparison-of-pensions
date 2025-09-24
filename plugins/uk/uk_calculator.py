@@ -12,16 +12,16 @@ class UKTaxBands:
     basic_rate_threshold: float = 37700.0  # £12,570 - £50,270
     higher_rate_threshold: float = 125140.0  # £50,270 - £125,140
     additional_rate_threshold: float = float('inf')  # £125,140+
-    
+
     basic_tax_rate: float = 0.20
     higher_tax_rate: float = 0.40
     additional_tax_rate: float = 0.45
-    
+
     # National Insurance rates
     ni_lower_earnings_limit: float = 6240.0  # LEL
     ni_primary_threshold: float = 12570.0  # PT
     ni_upper_earnings_limit: float = 50270.0  # UEL
-    
+
     ni_employee_rate_main: float = 0.12  # 12% between PT and UEL
     ni_employee_rate_additional: float = 0.02  # 2% above UEL
     ni_employer_rate_main: float = 0.138  # 13.8% above PT
@@ -35,29 +35,29 @@ class UKPensionParams:
     min_employer_rate: float = 0.03  # 3% minimum employer contribution
     max_employee_rate: float = 0.10  # Typical maximum employee contribution
     max_employer_rate: float = 0.08  # Typical maximum employer contribution
-    
+
     # Auto-enrollment thresholds
     ae_lower_earnings_limit: float = 6240.0  # £6,240 per year
     ae_upper_earnings_limit: float = 50270.0  # £50,270 per year
-    
+
     # Annual and lifetime allowances
     annual_allowance: float = 60000.0  # Annual contribution allowance
     money_purchase_annual_allowance: float = 10000.0  # For those with pension access
-    
+
     # State pension
     full_state_pension_weekly: float = 203.85  # 2024/25 rate
     qualifying_years_for_full_pension: int = 35
     minimum_qualifying_years: int = 10
-    
+
     # Investment assumptions
     default_annual_return: float = 0.05  # 5% nominal return
     conservative_return: float = 0.04  # 4% conservative estimate
     optimistic_return: float = 0.06  # 6% optimistic estimate
-    
+
     # Economic factors
     inflation_rate: float = 0.025  # 2.5% target inflation
-    wage_growth_rate: float = 0.025  # 2.5% nominal wage growth
-    
+    wage_growth_rate: float = 0.0   # 0% nominal wage growth
+
     # Retirement income options
     annuity_rate: float = 0.05  # Approximate annuity rate
     drawdown_rate: float = 0.04  # Sustainable drawdown rate
@@ -89,76 +89,76 @@ class UKPensionCalculator(BasePensionCalculator):
             "self_employed": 0.05,    # 自雇人士可选择缴费比例
             "farmer": 0.05            # 农民可选择缴费比例
         }
-    
+
     def calculate_income_tax(self, annual_income: float) -> float:
         """Calculate UK income tax"""
         if annual_income <= self.tax_bands.personal_allowance:
             return 0.0
-        
+
         tax = 0.0
         taxable_income = annual_income - self.tax_bands.personal_allowance
-        
+
         # Basic rate
         basic_band = min(taxable_income, self.tax_bands.basic_rate_threshold)
         tax += basic_band * self.tax_bands.basic_tax_rate
-        
+
         if taxable_income > self.tax_bands.basic_rate_threshold:
             # Higher rate
             higher_band = min(taxable_income - self.tax_bands.basic_rate_threshold,
                             self.tax_bands.higher_rate_threshold - self.tax_bands.basic_rate_threshold)
             tax += higher_band * self.tax_bands.higher_tax_rate
-            
+
             if taxable_income > self.tax_bands.higher_rate_threshold:
                 # Additional rate
                 additional_band = taxable_income - self.tax_bands.higher_rate_threshold
                 tax += additional_band * self.tax_bands.additional_tax_rate
-        
+
         return tax
-    
+
     def calculate_national_insurance(self, annual_income: float) -> Dict[str, float]:
         """Calculate UK National Insurance contributions"""
         employee_ni = 0.0
         employer_ni = 0.0
-        
+
         if annual_income > self.tax_bands.ni_primary_threshold:
             # Employee NI
             main_band = min(annual_income - self.tax_bands.ni_primary_threshold,
                           self.tax_bands.ni_upper_earnings_limit - self.tax_bands.ni_primary_threshold)
             employee_ni += main_band * self.tax_bands.ni_employee_rate_main
-            
+
             if annual_income > self.tax_bands.ni_upper_earnings_limit:
                 additional_band = annual_income - self.tax_bands.ni_upper_earnings_limit
                 employee_ni += additional_band * self.tax_bands.ni_employee_rate_additional
-            
+
             # Employer NI
             employer_ni = (annual_income - self.tax_bands.ni_primary_threshold) * self.tax_bands.ni_employer_rate_main
             # Apply employment allowance (simplified - assume it applies)
             employer_ni = max(0, employer_ni - self.tax_bands.ni_employer_rate_allowance)
-        
+
         return {
             "employee_ni": employee_ni,
             "employer_ni": employer_ni,
             "total_ni": employee_ni + employer_ni
         }
-    
-    def calculate_workplace_pension_contributions(self, annual_salary: float, 
+
+    def calculate_workplace_pension_contributions(self, annual_salary: float,
                                                 employee_rate: float = None,
                                                 employer_rate: float = None) -> Dict[str, float]:
         """Calculate workplace pension contributions with auto-enrollment rules"""
-        
+
         # Use provided rates or defaults
         emp_rate = employee_rate or self.pension_params.min_employee_rate
         er_rate = employer_rate or self.pension_params.min_employer_rate
-        
+
         # Auto-enrollment qualifying earnings (between £6,240 and £50,270)
-        qualifying_earnings = max(0, 
-            min(annual_salary, self.pension_params.ae_upper_earnings_limit) - 
+        qualifying_earnings = max(0,
+            min(annual_salary, self.pension_params.ae_upper_earnings_limit) -
             self.pension_params.ae_lower_earnings_limit)
-        
+
         # Calculate contributions
         employee_contrib = qualifying_earnings * emp_rate
         employer_contrib = qualifying_earnings * er_rate
-        
+
         # Apply annual allowance cap
         total_contrib = employee_contrib + employer_contrib
         if total_contrib > self.pension_params.annual_allowance:
@@ -166,11 +166,11 @@ class UKPensionCalculator(BasePensionCalculator):
             employee_contrib *= ratio
             employer_contrib *= ratio
             total_contrib = self.pension_params.annual_allowance
-        
+
         # Tax relief on employee contributions (20% basic rate assumption)
         tax_relief = employee_contrib * 0.20
         net_employee_contrib = employee_contrib - tax_relief
-        
+
         return {
             "qualifying_earnings": qualifying_earnings,
             "employee_contribution": employee_contrib,
@@ -197,22 +197,22 @@ class UKPensionCalculator(BasePensionCalculator):
         monthly_salary_cny = salary_profile.base_salary
         cny_to_gbp_rate = 0.11  # 1 CNY = 0.11 GBP
         annual_salary_gbp = monthly_salary_cny * 12 * cny_to_gbp_rate
-        
+
         balance = 0.0
         total_wp_contrib = 0.0
         wage_growth = self.pension_params.wage_growth_rate  # 2.5%
         annual_return = self.pension_params.default_annual_return  # 5%
-        
+
         current_salary = annual_salary_gbp
         for year in range(years):
             # Calculate workplace pension contributions
             workplace_pension = self.calculate_workplace_pension_contributions(current_salary)
             annual_contrib = workplace_pension['total_contribution']
-            
+
             # Add contribution and compound growth
             balance = balance * (1 + annual_return) + annual_contrib
             total_wp_contrib += annual_contrib
-            
+
             # Apply wage growth for next year
             current_salary *= (1 + wage_growth)
 
@@ -278,34 +278,34 @@ class UKPensionCalculator(BasePensionCalculator):
                 'workplace_pension_balance': final_wp_balance
             }
         )
-    
-    def _calculate_workplace_pension_pot(self, 
+
+    def _calculate_workplace_pension_pot(self,
                                        contribution_history: List[Dict[str, Any]],
                                        economic_factors: EconomicFactors) -> float:
         """Calculate workplace pension pot with compound growth and inflation adjustment"""
         pot_value = 0.0
         annual_return = self.pension_params.default_annual_return
         inflation_rate = economic_factors.inflation_rate if hasattr(economic_factors, 'inflation_rate') else self.pension_params.inflation_rate
-        
+
         # Use real return (nominal return - inflation)
         real_return = annual_return - inflation_rate
-        
+
         for record in contribution_history:
             # Add annual contribution and compound growth
             annual_contribution = record.get('total_workplace_contribution', 0)
             pot_value = pot_value * (1 + real_return) + annual_contribution
-        
+
         # Convert back to nominal terms
         years = len(contribution_history)
         inflation_factor = (1 + inflation_rate) ** years
-        
+
         return pot_value * inflation_factor
-    
+
     def _calculate_workplace_pension_income(self, pension_pot: float, retirement_age: int) -> float:
         """Calculate monthly income from workplace pension pot"""
         if pension_pot <= 0:
             return 0.0
-        
+
         # Use drawdown approach (4% annual withdrawal rate)
         annual_income = pension_pot * self.pension_params.drawdown_rate
         return annual_income / 12
@@ -332,7 +332,7 @@ class UKPensionCalculator(BasePensionCalculator):
             # Convert CNY monthly salary to GBP annual salary
             cny_to_gbp_rate = 0.11  # 1 CNY = 0.11 GBP (2025 reference rate)
             annual_salary_gbp = monthly_salary_cny * 12 * cny_to_gbp_rate
-            
+
             # Apply wage growth
             annual_salary_gbp *= (1 + self.pension_params.wage_growth_rate) ** year
 
@@ -347,8 +347,8 @@ class UKPensionCalculator(BasePensionCalculator):
 
             # Calculate net take-home pay
             gross_pay = annual_salary_gbp
-            total_deductions = (income_tax + 
-                              ni_calculations['employee_ni'] + 
+            total_deductions = (income_tax +
+                              ni_calculations['employee_ni'] +
                               workplace_pension['net_employee_cost'])
             net_pay = gross_pay - total_deductions
 
@@ -381,7 +381,7 @@ class UKPensionCalculator(BasePensionCalculator):
                                work_years: int,
                                economic_factors: EconomicFactors) -> float:
         """Calculate UK State Pension with enhanced logic"""
-        
+
         # Full state pension amount (2024/25 rates)
         full_pension_weekly = self.pension_params.full_state_pension_weekly
         full_pension_monthly = full_pension_weekly * 52 / 12
@@ -402,7 +402,7 @@ class UKPensionCalculator(BasePensionCalculator):
         # Calculate proportion based on qualifying years (max 35 years for full pension)
         max_qualifying_years = self.pension_params.qualifying_years_for_full_pension
         effective_years = min(qualifying_years, max_qualifying_years)
-        
+
         adjustment_factor = effective_years / max_qualifying_years
         monthly_state_pension = full_pension_monthly * adjustment_factor
 
@@ -420,42 +420,42 @@ class UKPensionCalculator(BasePensionCalculator):
         years_to_break_even = months_to_break_even / 12
 
         return retirement_age + int(years_to_break_even)
-    
+
     def format_currency_with_conversion(self, amount_gbp: float, cny_to_gbp_rate: float = 0.11) -> str:
         """Format GBP amount with CNY conversion"""
         amount_cny = amount_gbp / cny_to_gbp_rate
         return f"£{amount_gbp:,.2f} (¥{amount_cny:,.0f})"
-    
-    def generate_detailed_report(self, result: PensionResult, 
+
+    def generate_detailed_report(self, result: PensionResult,
                                contribution_history: List[Dict[str, Any]],
                                person: Person) -> Dict[str, Any]:
         """Generate comprehensive pension report"""
-        
+
         details = result.details
         cny_to_gbp_rate = 0.11
-        
+
         # Summary statistics
         total_years = details['work_years']
         qualifying_years = details['qualifying_years']
-        
+
         # Financial breakdown
         workplace_pot = details['workplace_pension_pot']
         state_pension_annual = details['state_pension_monthly'] * 12
         workplace_pension_annual = details['workplace_pension_monthly'] * 12
         total_annual_pension = result.monthly_pension * 12
-        
+
         # Contribution analysis
         total_employee = details['total_employee_contribution']
-        total_employer = details['total_employer_contribution'] 
+        total_employer = details['total_employer_contribution']
         total_tax_relief = details['total_tax_relief']
         effective_cost = details['effective_employee_cost']
-        
+
         # Performance metrics
         replacement_ratio = 0.0
         if contribution_history:
             final_salary = contribution_history[-1]['annual_salary_gbp']
             replacement_ratio = total_annual_pension / final_salary if final_salary > 0 else 0
-        
+
         return {
             "summary": {
                 "total_monthly_pension_gbp": result.monthly_pension,
@@ -485,10 +485,10 @@ class UKPensionCalculator(BasePensionCalculator):
             },
             "formatted_summary": self._format_pension_summary(result, details, cny_to_gbp_rate)
         }
-    
+
     def _format_pension_summary(self, result: PensionResult, details: Dict, cny_to_gbp_rate: float) -> str:
         """Format a readable pension summary"""
-        
+
         summary = f"""
 🇬🇧 UK PENSION CALCULATION SUMMARY
 {'=' * 50}
@@ -511,11 +511,11 @@ class UKPensionCalculator(BasePensionCalculator):
    Return on Investment: {result.roi:.1%}
    Break-even Age: {result.break_even_age} years old
    Qualifying Years: {details['qualifying_years']}/{self.pension_params.qualifying_years_for_full_pension} for state pension
-   
+
 📈 LIFETIME PROJECTION:
    Total Lifetime Benefit: {self.format_currency_with_conversion(result.total_benefit, cny_to_gbp_rate)}
    Retirement Age: {details['retirement_age']} years old
    Working Years: {details['work_years']} years
         """
-        
+
         return summary.strip()

@@ -9,15 +9,15 @@ from core.models import Person, SalaryProfile, EconomicFactors, PensionResult, E
 class TWParams:
     start_age: int = 30
     retire_age: int = 65
-    wage_growth: float = 0.02   # 年薪增长 2%
-    
+    wage_growth: float = 0.0    # 年薪增长 0%
+
     # 劳保年金 (DB)
     ins_rate: float = 0.105     # 劳保费率 10.5%
     employer_share: float = 0.70  # 雇主承担 70%
     worker_share: float = 0.20    # 劳工承担 20%
     gov_share: float = 0.10       # 政府承担 10%
     cap_month: float = 45800.0    # 月投保薪资上限 NT$45,800
-    
+
     # 劳退新制 (DC)
     labor_pension_rate: float = 0.06  # 劳退新制雇主提缴率 6%
     voluntary_rate: float = 0.06      # 劳工自提上限 6%
@@ -60,23 +60,23 @@ class TaiwanPensionCalculator(BasePensionCalculator):
         worker_contrib_total = 0.0
         employer_contrib_total = 0.0
         gov_contrib_total = 0.0
-        
+
         for y in range(years):
             # 年循环内：
             monthly_salary = salary / 12.0
             insured_base = min(monthly_salary, params.cap_month)
             annual_base = insured_base * 12.0
-            
+
             total_insurance = annual_base * params.ins_rate
             worker_contrib = total_insurance * params.worker_share
             employer_contrib = total_insurance * params.employer_share
             gov_contrib = total_insurance * params.gov_share
-            
+
             contrib_total += total_insurance
             worker_contrib_total += worker_contrib
             employer_contrib_total += employer_contrib
             gov_contrib_total += gov_contrib
-            
+
             salary *= (1 + params.wage_growth)
 
         # 平均投保薪资（用首尾平均近似，考虑投保薪资上限）
@@ -93,7 +93,7 @@ class TaiwanPensionCalculator(BasePensionCalculator):
 
         avg_base_month = avg_salary / 12
         monthly_pension = avg_base_month * benefit_ratio
-        
+
         # 纯DB口径的所得替代率
         replacement_ratio = monthly_pension / avg_base_month
 
@@ -111,55 +111,55 @@ class TaiwanPensionCalculator(BasePensionCalculator):
             "Replacement_Ratio": replacement_ratio,
             "Monthly_Pension": monthly_pension
         }
-    
+
     def calc_labor_pension_dc(self, annual_salary: float, params: TWParams = TWParams()) -> Dict[str, float]:
         """台湾劳退新制（DC）计算"""
         years = params.retire_age - params.start_age
         salary = annual_salary
-        
+
         total_contrib = 0.0
         employer_contrib_total = 0.0
         worker_contrib_total = 0.0  # 假设劳工自提6%
         balance = 0.0
-        
+
         for y in range(years):
             monthly_salary = salary / 12.0
             # 劳退新制有更高的薪资上限
             capped_monthly = min(monthly_salary, params.labor_pension_cap)
             capped_annual = capped_monthly * 12.0
-            
+
             # 雇主提缴 6%
             employer_contrib = capped_annual * params.labor_pension_rate
             # 劳工自提 6% (可选，这里假设全额自提)
             worker_contrib = capped_annual * params.voluntary_rate
-            
+
             annual_contrib = employer_contrib + worker_contrib
-            
+
             # 投资增值
             balance = balance * (1 + params.investment_return) + annual_contrib
-            
+
             total_contrib += annual_contrib
             employer_contrib_total += employer_contrib
             worker_contrib_total += worker_contrib
-            
+
             salary *= (1 + params.wage_growth)
-        
+
         # 退休时账户余额
         account_balance = balance
-        
+
         # 月退休金（年金化，假设20年领取）
         annuity_years = 20
         monthly_periods = annuity_years * 12
         discount_rate = 0.03 / 12  # 月折现率3%
-        
+
         if discount_rate > 0:
             monthly_pension = account_balance * discount_rate / (1 - (1 + discount_rate) ** -monthly_periods)
         else:
             monthly_pension = account_balance / monthly_periods
-        
+
         # 总投资收益
         total_return = account_balance - total_contrib
-        
+
         return {
             "Initial_Annual_Salary": annual_salary,
             "Final_Annual_Salary": salary,
@@ -179,43 +179,43 @@ class TaiwanPensionCalculator(BasePensionCalculator):
         """计算台湾劳保年金"""
         # 使用新的计算逻辑
         params = TWParams()
-        
+
         # 转换月薪为年薪（TWD）
         monthly_salary_cny = salary_profile.base_salary
         cny_to_twd_rate = 4.4  # 1 CNY = 4.4 TWD
         annual_salary_twd = monthly_salary_cny * 12 * cny_to_twd_rate
-        
+
         # 调用核心计算函数
         db_result = self.calc_tw_pension(annual_salary_twd, params)
         dc_result = self.calc_labor_pension_dc(annual_salary_twd, params)
-        
+
         print("🇹🇼 === 台湾养老金详细分析系统 ===")
         print("分析劳保年金（DB） + 劳退新制（DC）")
-        
+
         # DB系统数据
         db_avg_base_month = db_result['Average_Base_Monthly']
         db_years = db_result['Years_Contributed']
         db_ratio = db_result['Benefit_Ratio']
         db_monthly_pension = db_result['Monthly_Pension']
         db_last_year_salary = db_result['Final_Annual_Salary']
-        
+
         # DC系统数据
         dc_monthly_pension = dc_result['Monthly_Pension']
         dc_account_balance = dc_result['Account_Balance']
         dc_total_contrib = dc_result['Total_Contributions']
         dc_total_return = dc_result['Total_Return']
         dc_last_year_salary = dc_result['Final_Annual_Salary']
-        
+
         # 计算替代率
         db_last_year_monthly = db_last_year_salary / 12.0
         dc_last_year_monthly = dc_last_year_salary / 12.0
         db_replacement_ratio = db_monthly_pension / db_last_year_monthly
         dc_replacement_ratio = dc_monthly_pension / dc_last_year_monthly
-        
+
         # 合计
         total_monthly_pension = db_monthly_pension + dc_monthly_pension
         total_replacement_ratio = db_replacement_ratio + dc_replacement_ratio
-        
+
         print(f"\n--------------------------------------------------")
         print(f"📊 劳保年金（DB）")
         print(f"  - 平均月投保薪资: NT${db_avg_base_month:,.0f}{'（封顶）' if db_avg_base_month >= params.cap_month else ''}")

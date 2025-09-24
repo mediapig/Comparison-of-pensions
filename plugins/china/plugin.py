@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Any
 from datetime import date
 
 from core.base_plugin import BaseCountryPlugin, PluginConfig
-from core.models import Person, SalaryProfile, EconomicFactors, PensionResult
+from core.models import Person, SalaryProfile, EconomicFactors, PensionResult, Gender, EmploymentType
 from utils.smart_currency_converter import CurrencyAmount
 from .config import ChinaConfig
 from .china_tax_calculator import ChinaTaxCalculator
@@ -44,14 +44,25 @@ class ChinaPlugin(BaseCountryPlugin):
             tax_year=config.tax_year
         )
 
+    def create_person(self, start_age: int = 30) -> Person:
+        """创建Person对象 - 中国：30岁工作到62岁退休"""
+        current_year = date.today().year
+        return Person(
+            name=f"{self.COUNTRY_NAME}用户",
+            birth_date=date(current_year - start_age, 1, 1),
+            gender=Gender.MALE,
+            employment_type=EmploymentType.EMPLOYEE,
+            start_work_date=date(current_year, 1, 1)
+        )
+
     def calculate_pension(self,
                          person: Person,
                          salary_profile: SalaryProfile,
                          economic_factors: EconomicFactors) -> PensionResult:
         """计算退休金 - 使用优化的7步算法计算器"""
-        # 获取退休年龄
-        retirement_age = self.get_retirement_age(person)
-        start_age = 30  # 固定从30岁开始工作
+        # 中国：30岁工作到62岁退休
+        start_age = 30
+        retirement_age = 62
         
         # 使用优化的7步算法计算器计算养老金
         annual_income = salary_profile.monthly_salary * 12

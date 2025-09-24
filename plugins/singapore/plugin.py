@@ -8,11 +8,9 @@ from typing import Dict, List, Optional, Any
 from datetime import date
 
 from core.base_plugin import BaseCountryPlugin, PluginConfig
-from core.models import Person, SalaryProfile, EconomicFactors, PensionResult
-from .cpf_calculator import SingaporeCPFCalculator, CPFAccountBalances
+from core.models import Person, SalaryProfile, EconomicFactors, PensionResult, Gender, EmploymentType
+from .cpf_calculator import SingaporeCPFCalculator
 from .cpf_payout_calculator import SingaporeCPFPayoutCalculator
-from .cpf_life_optimized import CPFLifeOptimizedCalculator
-from .cpf_life_analyzer import CPFLifeAnalyzer, AnalysisConfig
 from .singapore_tax_calculator_enhanced import SingaporeTaxCalculatorEnhanced
 from .singapore_detailed_analyzer import SingaporeDetailedAnalyzer
 
@@ -27,8 +25,6 @@ class SingaporePlugin(BaseCountryPlugin):
         super().__init__()
         self.cpf_calculator = SingaporeCPFCalculator()
         self.cpf_payout_calculator = SingaporeCPFPayoutCalculator()
-        self.cpf_life_optimized = CPFLifeOptimizedCalculator()
-        self.cpf_life_analyzer = CPFLifeAnalyzer()
         self.tax_calculator_enhanced = SingaporeTaxCalculatorEnhanced()
         self.detailed_analyzer = SingaporeDetailedAnalyzer()
 
@@ -42,15 +38,27 @@ class SingaporePlugin(BaseCountryPlugin):
             tax_year=2024
         )
 
+    def create_person(self, start_age: int = 30) -> Person:
+        """创建Person对象 - 新加坡：30岁工作到65岁退休"""
+        current_year = date.today().year
+        return Person(
+            name=f"{self.COUNTRY_NAME}用户",
+            birth_date=date(current_year - start_age, 1, 1),
+            gender=Gender.MALE,
+            employment_type=EmploymentType.EMPLOYEE,
+            start_work_date=date(current_year, 1, 1)
+        )
+
     def calculate_pension(self,
                          person: Person,
                          salary_profile: SalaryProfile,
                          economic_factors: EconomicFactors) -> PensionResult:
-        """计算新加坡CPF退休金"""
+        """计算新加坡CPF退休金 - 30岁工作到65岁退休"""
         monthly_salary = salary_profile.monthly_salary
-        work_years = person.work_years if person.work_years > 0 else 35
-        start_age = person.age if person.age > 0 else 30
-        retirement_age = self.get_retirement_age(person)
+        # 新加坡：30岁工作到65岁退休
+        start_age = 30
+        retirement_age = 65
+        work_years = retirement_age - start_age  # 35年
 
         # 使用新的CPF计算器计算终身缴费
         lifetime_result = self.cpf_calculator.calculate_lifetime_cpf(
@@ -63,24 +71,23 @@ class SingaporePlugin(BaseCountryPlugin):
         # CPF退休金计算（基于RA账户余额）
         ra_balance = lifetime_result['final_balances']['ra_balance']
         sa_balance = lifetime_result['final_balances']['sa_balance']
-        
-        # 使用优化的CPF LIFE计算器计算月退休金
-        from .cpf_life_optimized import CPFLifeOptimizedCalculator
-        optimized_calculator = CPFLifeOptimizedCalculator()
-        
+
+        # 使用CPF领取计算器计算月退休金
         # 合并RA和SA余额作为年金本金
         total_ra_balance = ra_balance + sa_balance
-        
+
         if total_ra_balance > 0:
-            cpf_life_result = optimized_calculator.cpf_life_simulate(
-                RA65=total_ra_balance,
-                plan="standard",
-                start_age=65,
-                horizon_age=90  # 假设90岁去世
+            payout_result = self.cpf_payout_calculator.calculate_cpf_life_payout(
+                ra_balance=total_ra_balance,
+                sa_balance=0,
+                annual_nominal_rate=0.035,  # 3.5%年利率
+                annual_inflation_rate=0.02,  # 2%通胀率
+                payout_years=25,  # 25年领取期（65-90岁）
+                scheme="level"  # 固定金额领取
             )
-            
-            monthly_pension = cpf_life_result.monthly_schedule[0] if cpf_life_result.monthly_schedule else 0
-            total_benefit = cpf_life_result.total_payout
+
+            monthly_pension = payout_result.monthly_payment
+            total_benefit = payout_result.total_payments
         else:
             monthly_pension = 0
             total_benefit = 0
@@ -89,26 +96,26 @@ class SingaporePlugin(BaseCountryPlugin):
         irr_analysis = self.cpf_calculator.calculate_irr_analysis(
             monthly_salary, start_age, retirement_age
         )
-        
+
         # 使用修正的IRR值
         irr_value = irr_analysis['irr_value']
         irr_percentage = irr_analysis['irr_percentage']
-        
+
         # 获取传统模型结果用于兼容性
         simplified_result = irr_analysis['traditional_model']
         employee_total = simplified_result['employee_contrib_total']
         monthly_payout = simplified_result['monthly_payout']
         terminal_value = simplified_result['terminal_value']
-        
+
         # 计算总收益（退休领取 + 终值）
         total_benefit_corrected = simplified_result['total_payout'] + terminal_value
-        
+
         # 使用IRR作为ROI（如果IRR计算失败，则使用简单回报率）
         if irr_percentage is not None:
             roi = irr_percentage
         else:
             roi = (total_benefit_corrected / employee_total - 1) * 100 if employee_total > 0 else 0
-        
+
         # 计算回本年龄（基于雇员缴费）
         if monthly_payout > 0:
             break_even_months = employee_total / monthly_payout
@@ -190,12 +197,12 @@ class SingaporePlugin(BaseCountryPlugin):
         """计算CPF缴费"""
         # 获取年龄（默认30岁开始工作）
         age = kwargs.get('age', 30)
-        
+
         # 使用新的CPF计算器
         lifetime_result = self.cpf_calculator.calculate_lifetime_cpf(
             monthly_salary, age, age + years
         )
-        
+
         return {
             'monthly_employee': lifetime_result['total_employee'] / (12 * years),
             'monthly_employer': lifetime_result['total_employer'] / (12 * years),
@@ -214,7 +221,7 @@ class SingaporePlugin(BaseCountryPlugin):
         """获取退休年龄"""
         return 65  # 修正为65岁退休
 
-    def print_detailed_analysis(self, 
+    def print_detailed_analysis(self,
                                person: Person,
                                salary_profile: SalaryProfile,
                                economic_factors: EconomicFactors,
@@ -224,71 +231,4 @@ class SingaporePlugin(BaseCountryPlugin):
         self.detailed_analyzer.print_detailed_analysis(
             self, person, salary_profile, economic_factors, pension_result, local_amount
         )
-    
-    def calculate_cpf_life_analysis(self, ra65_balance: float, 
-                                  plan: str = "standard") -> Dict:
-        """
-        计算CPF LIFE详细分析
-        
-        Args:
-            ra65_balance: 65岁时RA余额
-            plan: CPF LIFE计划类型 ("standard", "escalating", "basic")
-            
-        Returns:
-            CPF LIFE分析结果
-        """
-        return self.cpf_life_optimized.cpf_life_simulate(ra65_balance, plan)
-    
-    def compare_cpf_life_plans(self, ra65_balance: float) -> Dict:
-        """
-        比较所有CPF LIFE计划
-        
-        Args:
-            ra65_balance: 65岁时RA余额
-            
-        Returns:
-            所有计划的对比结果
-        """
-        return self.cpf_life_optimized.compare_plans(ra65_balance)
-    
-    def generate_cpf_life_report(self, ra65_balance: float, 
-                               output_format: str = 'text') -> str:
-        """
-        生成CPF LIFE详细报告
-        
-        Args:
-            ra65_balance: 65岁时RA余额
-            output_format: 输出格式 ('text', 'json')
-            
-        Returns:
-            报告内容
-        """
-        return self.cpf_life_analyzer.generate_detailed_report(ra65_balance, output_format)
-    
-    def analyze_bequest_scenarios(self, ra65_balance: float, 
-                                plan: str = "standard") -> Dict:
-        """
-        分析遗赠情景
-        
-        Args:
-            ra65_balance: 65岁时RA余额
-            plan: CPF LIFE计划类型
-            
-        Returns:
-            遗赠分析结果
-        """
-        return self.cpf_life_optimized.analyze_bequest_scenarios(ra65_balance, plan)
-    
-    def get_optimal_cpf_life_plan(self, ra65_balance: float, 
-                                 preferences: Dict = None) -> Dict:
-        """
-        获取最优CPF LIFE计划推荐
-        
-        Args:
-            ra65_balance: 65岁时RA余额
-            preferences: 用户偏好设置
-            
-        Returns:
-            最优计划分析结果
-        """
-        return self.cpf_life_optimized.calculate_optimal_plan(ra65_balance, preferences)
+

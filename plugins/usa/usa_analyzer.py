@@ -39,7 +39,7 @@ class USAPensionAnalyzer:
         # 创建工资档案 - 工资每年增长2%
         salary_profile = SalaryProfile(
             base_salary=monthly_salary,
-            annual_growth_rate=0.02
+            annual_growth_rate=0.0
         )
 
         # 创建经济因素
