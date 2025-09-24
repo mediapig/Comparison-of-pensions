@@ -106,24 +106,21 @@ class SingaporeCPFCalculator:
             OA_remaining = OA
         
         # === 65岁开始领取 ===
-        # 使用新的CPF Life计算方法
+        # 使用优化的CPF Life计算方法
         if RA > 0:
-            from .cpf_payout_calculator import SingaporeCPFPayoutCalculator
-            payout_calculator = SingaporeCPFPayoutCalculator()
+            from .cpf_life_optimized import CPFLifeOptimizedCalculator
+            optimized_calculator = CPFLifeOptimizedCalculator()
             
-            # 使用CPF Life Standard计划计算月养老金
-            cpf_life_result = payout_calculator.compute_cpf_life_payout(
+            # 使用优化的CPF Life Standard计划计算月养老金
+            cpf_life_result = optimized_calculator.cpf_life_simulate(
                 RA65=RA,
                 plan="standard",
                 start_age=65,
-                nominal_discount_rate=0.035,  # 3.5%年利率
-                expected_life_years=25,       # 25年退休期
-                escalating_rate=0.02,         # 2%通胀率
-                payments_per_year=12
+                horizon_age=90  # 假设90岁去世
             )
             
-            payout_per_month = cpf_life_result['monthly_payout']
-            total_payout = sum(cpf_life_result['monthly_schedule'])  # 使用CPF Life计算的总领取
+            payout_per_month = cpf_life_result.monthly_schedule[0] if cpf_life_result.monthly_schedule else 0
+            total_payout = cpf_life_result.total_payout
         else:
             payout_per_month = 0
             total_payout = 0
@@ -215,6 +212,7 @@ class SingaporeCPFCalculator:
             'npv_value': irr_result['npv'],
             'cash_flows': irr_result['cash_flows'],
             'cash_flow_details': irr_result['cash_flow_details'],
+            'terminal_accounts': irr_result.get('terminal_accounts', {}),
             'summary': irr_result['summary'],
             'analysis': irr_result['analysis'],
             'traditional_model': {

@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 from typing import Dict, List, Any, Optional
 import pandas as pd
 import numpy as np
@@ -13,8 +16,10 @@ class PensionEngine:
 
     def register_calculator(self, calculator: BasePensionCalculator):
         """注册退休金计算器"""
-        self.calculators[calculator.country_code] = calculator
-        print(f"已注册 {calculator.country_name} ({calculator.country_code}) 计算器")
+        country_code = getattr(calculator, 'country_code', None) or getattr(calculator, 'COUNTRY_CODE', None)
+        country_name = getattr(calculator, 'country_name', None) or getattr(calculator, 'COUNTRY_NAME', None)
+        self.calculators[country_code] = calculator
+        print(f"已注册 {country_name} ({country_code}) 计算器")
 
     def get_available_countries(self) -> List[str]:
         """获取可用的国家列表"""

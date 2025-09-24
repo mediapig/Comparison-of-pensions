@@ -74,6 +74,7 @@ class USAPensionCalculator(BasePensionCalculator):
             monthly_pension=monthly_pension,
             total_contribution=total_contribution,
             total_benefit=total_benefit,
+            retirement_account_balance=k401_balance,
             break_even_age=break_even_age,
             roi=roi,
             original_currency="USD",

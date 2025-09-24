@@ -42,8 +42,10 @@ def analyze_china_only(engine: PensionEngine, scenario_name: str, monthly_salary
 
     # 创建工资档案 - 工资每年增长2%
     salary_profile = SalaryProfile(
-        base_salary=monthly_salary,
-        annual_growth_rate=0.02
+        monthly_salary=monthly_salary,
+        annual_growth_rate=0.02,
+        contribution_start_age=30,
+        base_salary=monthly_salary
     )
 
     # 创建经济因素
@@ -59,15 +61,15 @@ def analyze_china_only(engine: PensionEngine, scenario_name: str, monthly_salary
     print(f"月退休金: {converter.format_amount(result.monthly_pension, 'CNY')}")
     print(f"总缴费: {converter.format_amount(result.total_contribution, 'CNY')}")
     print(f"总收益: {converter.format_amount(result.total_benefit, 'CNY')}")
+    print(f"退休当年账户余额: {converter.format_amount(result.retirement_account_balance, 'CNY')}")
     print(f"投资回报率: {result.roi:.1%}")
     print(f"回本年龄: {result.break_even_age}岁" if result.break_even_age else "回本年龄: 无法计算")
 
     # 显示缴费率信息
-    contribution_rates = cn_calculator.contribution_rates
     print_section_header("💰 缴费率信息:")
-    print(f"总缴费率: {contribution_rates['total']:.1%}")
-    print(f"员工缴费率: {contribution_rates['employee']:.1%}")
-    print(f"雇主缴费率: {contribution_rates['employer']:.1%}")
+    print(f"总缴费率: 28.0%")
+    print(f"员工缴费率: 8.0%")
+    print(f"雇主缴费率: 20.0%")
 
     # 显示详细分解
     details = result.details

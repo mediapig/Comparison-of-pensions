@@ -20,8 +20,10 @@ def analyze_usa_only(engine: PensionEngine, scenario_name: str, monthly_salary: 
     person.start_work_date = person.birth_date.replace(year=1995, month=7, day=1)  # US specific start date
     
     salary_profile = SalaryProfile(
-        base_salary=monthly_salary,
-        annual_growth_rate=0.02
+        monthly_salary=monthly_salary,
+        annual_growth_rate=0.02,
+        contribution_start_age=30,
+        base_salary=monthly_salary
     )
     
     economic_factors = create_standard_economic_factors(base_currency="CNY", display_currency="USD")
@@ -39,6 +41,7 @@ def analyze_usa_only(engine: PensionEngine, scenario_name: str, monthly_salary: 
     print(f"月退休金: {converter.format_amount(basic_result.monthly_pension, 'USD')}")
     print(f"总缴费: {converter.format_amount(basic_result.total_contribution, 'USD')}")
     print(f"总收益: {converter.format_amount(basic_result.total_benefit, 'USD')}")
+    print(f"退休当年账户余额: {converter.format_amount(basic_result.retirement_account_balance, 'USD')}")
     print(f"投资回报率: {basic_result.roi:.1%}")
     print(f"回本年龄: {basic_result.break_even_age}岁" if basic_result.break_even_age else "回本年龄: 无法计算")
 
