@@ -13,9 +13,7 @@ from core.models import Person, SalaryProfile, EconomicFactors, PensionResult, G
 from utils.smart_currency_converter import CurrencyAmount
 from .config import ChinaConfig
 from .china_tax_calculator import ChinaTaxCalculator
-from .pension_calculator import ChinaPensionCalculator
-from .china_social_security_calculator import ChinaSocialSecurityCalculator, ChinaSocialSecurityParams
-from .china_optimized_calculator import ChinaOptimizedCalculator, ChinaOptimizedParams
+from .china_optimized_calculator import ChinaOptimizedCalculator
 from .china_detailed_analyzer import ChinaDetailedAnalyzer
 
 class ChinaPlugin(BaseCountryPlugin):
@@ -28,8 +26,6 @@ class ChinaPlugin(BaseCountryPlugin):
     def __init__(self):
         super().__init__()
         self.tax_calculator = ChinaTaxCalculator()
-        self.pension_calculator = ChinaPensionCalculator()
-        self.social_security_calculator = ChinaSocialSecurityCalculator()
         self.optimized_calculator = ChinaOptimizedCalculator()
         self.detailed_analyzer = ChinaDetailedAnalyzer()
 
@@ -63,7 +59,7 @@ class ChinaPlugin(BaseCountryPlugin):
         # 中国：30岁工作到62岁退休
         start_age = 30
         retirement_age = 62
-        
+
         # 使用优化的7步算法计算器计算养老金
         annual_income = salary_profile.monthly_salary * 12
         pension_result = self.optimized_calculator.calculate_lifetime(
@@ -71,7 +67,7 @@ class ChinaPlugin(BaseCountryPlugin):
             salary_growth_rate=salary_profile.annual_growth_rate,
             hf_rate=0.07  # 默认公积金比例7%
         )
-        
+
         # 转换为PensionResult格式
         return PensionResult(
             monthly_pension=pension_result.monthly_pension,
@@ -79,7 +75,7 @@ class ChinaPlugin(BaseCountryPlugin):
             total_benefit=pension_result.total_benefits,
             retirement_account_balance=pension_result.final_housing_fund_balance,
             break_even_age=pension_result.break_even_age,
-            roi=pension_result.roi * 100,  # 转换为百分比
+            roi=pension_result.roi,  # ROI已经是百分比形式
             original_currency=self.CURRENCY,
             details={
                 'work_years': pension_result.total_work_years,
@@ -89,7 +85,8 @@ class ChinaPlugin(BaseCountryPlugin):
                 'housing_fund_balance': pension_result.final_housing_fund_balance,
                 'total_employee_contributions': pension_result.total_employee_contributions,
                 'total_employer_contributions': pension_result.total_employer_contributions,
-                'final_pension_account_balance': pension_result.final_pension_account_balance
+                'final_pension_account_balance': pension_result.final_pension_account_balance,
+                'irr': pension_result.irr  # 添加IRR信息
             }
         )
 
@@ -114,16 +111,16 @@ class ChinaPlugin(BaseCountryPlugin):
         # 使用优化的7步算法计算器计算年度缴费
         annual_income = monthly_salary * 12
         avg_wage = self.optimized_calculator.params.avg_wage_2024
-        
+
         # 计算第一年详细结果
         yearly_result = self.optimized_calculator.calculate_yearly(
-            year=2024, 
-            age=30, 
-            gross_income=annual_income, 
-            avg_wage=avg_wage, 
+            year=2024,
+            age=30,
+            gross_income=annual_income,
+            avg_wage=avg_wage,
             hf_rate=0.07
         )
-        
+
         return {
             'monthly_employee': yearly_result.emp_total_si / 12,
             'monthly_employer': yearly_result.er_total_si / 12,
@@ -153,8 +150,8 @@ class ChinaPlugin(BaseCountryPlugin):
             "employer": 0.16,        # 单位缴费比例 16%
             "total": 0.24            # 总缴费比例 24%
         }
-    
-    def print_detailed_analysis(self, 
+
+    def print_detailed_analysis(self,
                                person: Person,
                                salary_profile: SalaryProfile,
                                economic_factors: EconomicFactors,
