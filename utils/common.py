@@ -24,8 +24,10 @@ def create_standard_person() -> Person:
 def create_standard_salary_profile(monthly_salary: float, growth_rate: float = 0.00) -> SalaryProfile:
     """Create standard salary profile"""
     return SalaryProfile(
-        base_salary=monthly_salary,
-        annual_growth_rate=growth_rate
+        monthly_salary=monthly_salary,
+        annual_growth_rate=growth_rate,
+        contribution_start_age=30,
+        base_salary=monthly_salary
     )
 
 def create_standard_economic_factors(base_currency: str = "CNY", display_currency: str = None) -> EconomicFactors:
