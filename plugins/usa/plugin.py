@@ -218,9 +218,9 @@ class USAPlugin(BaseCountryPlugin):
         """获取401k缴费限制"""
         return self.k401_calculator.limits.get_employee_contribution_limit(age)
 
-    def get_401k_analysis(self, 
-                         person: Person, 
-                         salary_profile: SalaryProfile, 
+    def get_401k_analysis(self,
+                         person: Person,
+                         salary_profile: SalaryProfile,
                          economic_factors: EconomicFactors) -> Dict[str, Any]:
         """获取401k详细分析"""
         # 直接使用月薪，因为salary_profile已经包含了正确的货币信息

@@ -61,7 +61,7 @@ class USADetailedAnalyzer:
         start_age = person.age if person.age > 0 else 30
         retirement_age = plugin.get_retirement_age(person)
         work_years = retirement_age - start_age
-        retirement_years = 85 - retirement_age  # 假设活到85岁
+        retirement_years = 90 - retirement_age  # 假设活到90岁
 
         # 获取401k详细分析
         k401_analysis = plugin.get_401k_analysis(person, salary_profile, economic_factors)
@@ -136,7 +136,7 @@ class USADetailedAnalyzer:
                 }
             },
             "退休期分析": {
-                "年龄范围": f"{retirement_age}-85岁",
+                "年龄范围": f"{retirement_age}-90岁",
                 "退休年限": retirement_years,
                 "退休金收入": {
                     "月领取金额": pension_result.monthly_pension,
