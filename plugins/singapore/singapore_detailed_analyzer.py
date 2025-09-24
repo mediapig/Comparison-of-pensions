@@ -44,6 +44,17 @@ class SingaporeDetailedAnalyzer:
                                local_amount: CurrencyAmount) -> dict:
         """生成JSON格式的分析结果"""
         
+        # 使用正确的CPF计算逻辑，包括MA超额处理
+        start_age = 30  # 固定从30岁开始工作
+        retirement_age = 65  # 固定65岁退休
+        
+        # 获取CPF计算器的详细结果
+        lifetime_result = plugin.cpf_calculator.calculate_lifetime_cpf(
+            salary_profile.monthly_salary, 
+            start_age, 
+            retirement_age
+        )
+        
         # 计算第一年数据
         base = min(local_amount.amount, 102000)
         employee_contrib = base * 0.20
@@ -56,24 +67,20 @@ class SingaporeDetailedAnalyzer:
         tax_result = plugin.calculate_tax(taxable_income)
         net_income = taxable_income - tax_result.get('total_tax', 0)
         
-        # 计算35年工作期数据
-        cpf_base = min(annual_income, 102000)
-        annual_cpf_total = cpf_base * 0.37
-        annual_cpf_employee = cpf_base * 0.20
-        annual_cpf_employer = cpf_base * 0.17
+        # 使用CPF计算器的结果获取工作期数据
+        work_years = retirement_age - start_age
+        total_cpf_employee = lifetime_result['total_employee']
+        total_cpf_employer = lifetime_result['total_employer']
+        total_cpf_total = lifetime_result['total_lifetime']
         
-        total_cpf_employee = annual_cpf_employee * 35
-        total_cpf_employer = annual_cpf_employer * 35
-        total_cpf_total = annual_cpf_total * 35
-        
-        total_cpf_OA = cpf_base * 0.23 * 35
-        total_cpf_SA = cpf_base * 0.06 * 35
-        total_cpf_MA = cpf_base * 0.08 * 35
+        total_cpf_OA = lifetime_result['total_oa']
+        total_cpf_SA = lifetime_result['total_sa']
+        total_cpf_MA = lifetime_result['total_ma']
         
         # 计算总收入（考虑工资增长）
         total_salary = 0
         total_tax = 0
-        for year in range(35):
+        for year in range(work_years):
             salary = annual_income * (1.03 ** year)
             total_salary += salary
             total_tax += plugin.calculate_tax(salary).get('total_tax', 0)
@@ -86,21 +93,27 @@ class SingaporeDetailedAnalyzer:
         # 计算最终账户余额（90岁去世时的实际余额）
         final_accounts = {}
         try:
-            # 获取CPF计算器的结果
-            lifetime_result = plugin.cpf_calculator.calculate_lifetime_cpf(
-                salary_profile.monthly_salary, 
-                person.age if person.age > 0 else 30, 
-                plugin.get_retirement_age(person)
-            )
-            
             # 获取65岁退休时的账户余额
             final_balances_65 = lifetime_result['final_balances']
             
             # 计算90岁去世时的实际余额
             # RA账户在CPF Life Standard计划中应该在90岁时用完
             # OA和MA账户会保留并继续计息到90岁
-            oa_balance_90 = final_balances_65.get('oa_balance', 0) * (1.025 ** 25)  # OA年息2.5%，25年
-            ma_balance_90 = final_balances_65.get('ma_balance', 0) * (1.04 ** 25)    # MA年息4%，25年
+            retirement_years = 90 - retirement_age
+            
+            # OA账户继续计息
+            oa_balance_90 = final_balances_65.get('oa_balance', 0) * (1.025 ** retirement_years)  # OA年息2.5%
+            
+            # MA账户继续计息，但受cohort BHS限制
+            ma_balance_65 = final_balances_65.get('ma_balance', 0)
+            ma_balance_90 = ma_balance_65 * (1.04 ** retirement_years)  # MA年息4%
+            
+            # 应用cohort BHS限制（65岁时的BHS值）
+            from cpf_life_engine import cohort_bhs_at_65
+            cohort_bhs_limit = cohort_bhs_at_65(2024, start_age)
+            if ma_balance_90 > cohort_bhs_limit:
+                ma_balance_90 = cohort_bhs_limit
+            
             ra_balance_90 = 0  # RA账户在CPF Life Standard计划中应该在90岁时用完
             sa_balance_90 = 0  # SA已全部转入RA
             
@@ -164,8 +177,8 @@ class SingaporeDetailedAnalyzer:
                 }
             },
             "工作期总计": {
-                "工作年限": 35,
-                "年龄范围": "30-64岁",
+                "工作年限": work_years,
+                "年龄范围": f"{start_age}-{retirement_age-1}岁",
                 "收入情况": {
                     "总收入": total_salary,
                     "总税费": total_tax,
