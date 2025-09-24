@@ -10,9 +10,12 @@ from datetime import date
 
 from core.base_plugin import BaseCountryPlugin, PluginConfig
 from core.models import Person, SalaryProfile, EconomicFactors, PensionResult
+from utils.smart_currency_converter import CurrencyAmount
 from .config import ChinaConfig
 from .china_tax_calculator import ChinaTaxCalculator
 from .pension_calculator import ChinaPensionCalculator
+from .china_social_security_calculator import ChinaSocialSecurityCalculator, ChinaSocialSecurityParams
+from .china_detailed_analyzer import ChinaDetailedAnalyzer
 
 class ChinaPlugin(BaseCountryPlugin):
     """中国插件 - 合并版本"""
@@ -25,6 +28,8 @@ class ChinaPlugin(BaseCountryPlugin):
         super().__init__()
         self.tax_calculator = ChinaTaxCalculator()
         self.pension_calculator = ChinaPensionCalculator()
+        self.social_security_calculator = ChinaSocialSecurityCalculator()
+        self.detailed_analyzer = ChinaDetailedAnalyzer()
 
     def _load_config(self) -> PluginConfig:
         """加载配置"""
@@ -41,8 +46,39 @@ class ChinaPlugin(BaseCountryPlugin):
                          person: Person,
                          salary_profile: SalaryProfile,
                          economic_factors: EconomicFactors) -> PensionResult:
-        """计算退休金"""
-        return self.pension_calculator.calculate_pension(person, salary_profile, economic_factors)
+        """计算退休金 - 使用新的社保计算器"""
+        # 获取退休年龄
+        retirement_age = self.get_retirement_age(person)
+        start_age = person.age if person.age > 0 else 30
+        
+        # 使用新的社保计算器计算养老金
+        pension_result = self.social_security_calculator.calculate_lifetime_pension(
+            monthly_salary=salary_profile.monthly_salary,
+            start_age=start_age,
+            retirement_age=retirement_age,
+            salary_growth_rate=salary_profile.annual_growth_rate
+        )
+        
+        # 转换为PensionResult格式
+        return PensionResult(
+            monthly_pension=pension_result.monthly_pension,
+            total_contribution=pension_result.total_contributions,
+            total_benefit=pension_result.total_benefits,
+            retirement_account_balance=pension_result.housing_fund_balance + pension_result.medical_account_balance,
+            break_even_age=pension_result.break_even_age,
+            roi=pension_result.roi * 100,  # 转换为百分比
+            original_currency=self.CURRENCY,
+            details={
+                'work_years': pension_result.work_years,
+                'retirement_age': retirement_age,
+                'basic_pension': pension_result.basic_pension,
+                'personal_account_pension': pension_result.personal_account_pension,
+                'housing_fund_balance': pension_result.housing_fund_balance,
+                'medical_account_balance': pension_result.medical_account_balance,
+                'total_employee_contributions': pension_result.total_employee_contributions,
+                'total_employer_contributions': pension_result.total_employer_contributions
+            }
+        )
 
     def calculate_tax(self,
                      annual_income: float,
@@ -61,22 +97,22 @@ class ChinaPlugin(BaseCountryPlugin):
                                 monthly_salary: float,
                                 years: int,
                                 **kwargs) -> Dict[str, float]:
-        """计算社保缴费"""
-        # 使用china_tax_calculator的社保计算功能
-        ss_result = self.tax_calculator.calculate_social_security_contribution(monthly_salary)
-
-        # 计算终身总缴费
-        monthly_employee = ss_result['total']
-        monthly_employer = monthly_salary * 0.16  # 雇主缴费16%
-        total_employee = monthly_employee * 12 * years
-        total_employer = monthly_employer * 12 * years
-
+        """计算社保缴费 - 使用新的社保计算器"""
+        # 使用新的社保计算器计算年度缴费
+        ss_contribution = self.social_security_calculator.calculate_social_security_contribution(monthly_salary)
+        hf_contribution = self.social_security_calculator.calculate_housing_fund_contribution(monthly_salary)
+        
         return {
-            'monthly_employee': monthly_employee,
-            'monthly_employer': monthly_employer,
-            'total_employee': total_employee,
-            'total_employer': total_employer,
-            'total_lifetime': total_employee + total_employer
+            'monthly_employee': ss_contribution.employee_total,
+            'monthly_employer': ss_contribution.employer_total,
+            'total_employee': ss_contribution.employee_total * 12 * years,
+            'total_employer': ss_contribution.employer_total * 12 * years,
+            'total_lifetime': ss_contribution.total_contribution * 12 * years,
+            'housing_fund_employee': hf_contribution.employee_contribution,
+            'housing_fund_employer': hf_contribution.employer_contribution,
+            'housing_fund_total': hf_contribution.total_contribution * 12 * years,
+            'contribution_base': ss_contribution.contribution_base,
+            'housing_fund_base': hf_contribution.contribution_base
         }
 
     def get_retirement_age(self, person: Person) -> int:
@@ -95,3 +131,14 @@ class ChinaPlugin(BaseCountryPlugin):
             "employer": 0.16,        # 单位缴费比例 16%
             "total": 0.24            # 总缴费比例 24%
         }
+    
+    def print_detailed_analysis(self, 
+                               person: Person,
+                               salary_profile: SalaryProfile,
+                               economic_factors: EconomicFactors,
+                               pension_result: PensionResult,
+                               local_amount: CurrencyAmount):
+        """打印详细分析"""
+        self.detailed_analyzer.print_detailed_analysis(
+            self, person, salary_profile, economic_factors, pension_result, local_amount
+        )
