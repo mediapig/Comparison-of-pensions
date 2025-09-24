@@ -31,11 +31,11 @@ class USADetailedAnalyzer:
 
     def print_detailed_analysis(self,
                                plugin,
-                               person: Person,
-                               salary_profile: SalaryProfile,
-                               economic_factors: EconomicFactors,
-                               pension_result: PensionResult,
-                               local_amount: CurrencyAmount):
+                               person,
+                               salary_profile,
+                               economic_factors,
+                               pension_result,
+                               local_amount):
         """打印详细的美国社保和401k分析"""
 
         # 生成JSON格式的分析结果
@@ -50,11 +50,11 @@ class USADetailedAnalyzer:
 
     def _generate_analysis_json(self,
                                plugin,
-                               person: Person,
-                               salary_profile: SalaryProfile,
-                               economic_factors: EconomicFactors,
-                               pension_result: PensionResult,
-                               local_amount: CurrencyAmount) -> dict:
+                               person,
+                               salary_profile,
+                               economic_factors,
+                               pension_result,
+                               local_amount) -> dict:
         """生成JSON格式的分析结果"""
 
         # 基础信息
@@ -67,17 +67,19 @@ class USADetailedAnalyzer:
         k401_analysis = plugin.get_401k_analysis(person, salary_profile, economic_factors)
 
         # 计算年度数据
-        annual_salary = salary_profile.base_salary * 12
+        base_salary = salary_profile.base_salary if salary_profile.base_salary is not None else salary_profile.monthly_salary
+        annual_salary = base_salary * 12
         annual_salary_usd = annual_salary * 0.14  # 人民币转美元
 
         # 计算总缴费
-        total_ss_contribution = pension_result.details.get('total_ss_contribution', 0)
-        total_k401_contribution = k401_analysis['k401_total_contributions']
+        total_ss_contribution = pension_result.details.get('total_ss_contribution', 0) or 0
+        total_k401_contribution = k401_analysis.get('k401_total_contributions', 0) or 0
         total_contribution = total_ss_contribution + total_k401_contribution
 
         # 计算总收益
-        total_ss_benefit = pension_result.details.get('total_ss_benefit', 0)
-        total_k401_benefit = k401_analysis['k401_monthly_pension'] * 12 * retirement_years
+        total_ss_benefit = pension_result.details.get('total_ss_benefit', 0) or 0
+        k401_monthly_pension = k401_analysis.get('k401_monthly_pension', 0) or 0
+        total_k401_benefit = k401_monthly_pension * 12 * retirement_years
         total_benefit = total_ss_benefit + total_k401_benefit
 
         # 计算替代率
@@ -97,7 +99,7 @@ class USADetailedAnalyzer:
             },
             "收入信息": {
                 "月薪": {
-                    "人民币": salary_profile.base_salary,
+                    "人民币": base_salary,
                     "美元": annual_salary_usd / 12
                 },
                 "年薪": {
@@ -123,8 +125,8 @@ class USADetailedAnalyzer:
                     "总计": annual_salary_usd * 0.124
                 },
                 "终身缴费": {
-                    "个人": total_ss_contribution / 2,
-                    "雇主": total_ss_contribution / 2,
+                    "个人": total_ss_contribution / 2 if total_ss_contribution > 0 else 0,
+                    "雇主": total_ss_contribution / 2 if total_ss_contribution > 0 else 0,
                     "总计": total_ss_contribution
                 }
             },
@@ -141,32 +143,32 @@ class USADetailedAnalyzer:
                     "总计": k401_analysis['age_limits']['current_limit']
                 },
                 "年度缴费": {
-                    "员工缴费": k401_analysis['employer_match_sample']['employee_contribution'],
-                    "雇主匹配": k401_analysis['employer_match_sample']['employer_match'],
-                    "总计": k401_analysis['employer_match_sample']['total_401k']
+                    "员工缴费": k401_analysis.get('employer_match_sample', {}).get('employee_contribution', 0) or 0,
+                    "雇主匹配": k401_analysis.get('employer_match_sample', {}).get('employer_match', 0) or 0,
+                    "总计": k401_analysis.get('employer_match_sample', {}).get('total_401k', 0) or 0
                 },
                 "终身缴费": {
-                    "员工缴费": k401_analysis['k401_employee_total'],
-                    "雇主匹配": k401_analysis['k401_employer_total'],
-                    "总计": k401_analysis['k401_total_contributions']
+                    "员工缴费": k401_analysis.get('k401_employee_total', 0) or 0,
+                    "雇主匹配": k401_analysis.get('k401_employer_total', 0) or 0,
+                    "总计": k401_analysis.get('k401_total_contributions', 0) or 0
                 },
                 "雇主匹配规则": "100%匹配前3% + 50%匹配接下2%"
             },
             "投资收益": {
                 "投资回报率": f"{economic_factors.investment_return_rate:.1%}",
                 "通胀率": f"{economic_factors.inflation_rate:.1%}",
-                "401k最终余额": k401_analysis['k401_balance'],
-                "投资增值": k401_analysis['k401_balance'] - k401_analysis['k401_total_contributions']
+                "401k最终余额": k401_analysis.get('k401_balance', 0) or 0,
+                "投资增值": (k401_analysis.get('k401_balance', 0) or 0) - (k401_analysis.get('k401_total_contributions', 0) or 0)
             },
             "退休金计算": {
                 "社保退休金": {
-                    "月退休金": pension_result.details.get('social_security_pension', 0),
-                    "年退休金": pension_result.details.get('social_security_pension', 0) * 12,
+                    "月退休金": pension_result.details.get('social_security_pension', 0) or 0,
+                    "年退休金": (pension_result.details.get('social_security_pension', 0) or 0) * 12,
                     "终身收益": total_ss_benefit
                 },
                 "401k退休金": {
-                    "月退休金": k401_analysis['k401_monthly_pension'],
-                    "年退休金": k401_analysis['k401_monthly_pension'] * 12,
+                    "月退休金": k401_monthly_pension,
+                    "年退休金": k401_monthly_pension * 12,
                     "终身收益": total_k401_benefit
                 },
                 "总退休金": {
@@ -238,7 +240,7 @@ class USADetailedAnalyzer:
         """格式化缴费历史"""
         if not contribution_history:
             return []
-        
+
         formatted_history = []
         for i, record in enumerate(contribution_history[:5]):  # 只显示前5年
             formatted_history.append({
@@ -249,12 +251,12 @@ class USADetailedAnalyzer:
                 "雇主匹配": record.employer_match,
                 "总缴费": record.total_contribution
             })
-        
+
         if len(contribution_history) > 5:
             formatted_history.append({
                 "说明": f"... 省略中间{len(contribution_history) - 10}年 ..."
             })
-            
+
             # 显示最后5年
             for record in contribution_history[-5:]:
                 formatted_history.append({
@@ -265,7 +267,7 @@ class USADetailedAnalyzer:
                     "雇主匹配": record.employer_match,
                     "总缴费": record.total_contribution
                 })
-        
+
         return formatted_history
 
     def _format_decimals(self, data):
