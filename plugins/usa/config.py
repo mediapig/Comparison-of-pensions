@@ -31,4 +31,5 @@ class USAConfig:
         self.standard_deduction = 14600  # 单身
 
         # Medicare税率
+        
         self.medicare_rate = 0.0145  # 1.45%

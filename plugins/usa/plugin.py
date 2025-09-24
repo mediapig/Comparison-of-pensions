@@ -97,7 +97,8 @@ class USAPlugin(BaseCountryPlugin):
         """计算401k退休金"""
         # 将人民币月薪转换为美元（假设汇率1 CNY = 0.14 USD）
         cny_to_usd_rate = 0.14
-        initial_annual_salary_usd = salary_profile.base_salary * 12 * cny_to_usd_rate
+        base_salary = salary_profile.base_salary if salary_profile.base_salary is not None else salary_profile.monthly_salary
+        initial_annual_salary_usd = base_salary * 12 * cny_to_usd_rate
 
         # 计算401k
         k401_result = self.k401_calculator.calculate_401k_lifetime(
@@ -225,7 +226,8 @@ class USAPlugin(BaseCountryPlugin):
         """获取401k详细分析"""
         # 将人民币月薪转换为美元
         cny_to_usd_rate = 0.14
-        initial_annual_salary_usd = salary_profile.base_salary * 12 * cny_to_usd_rate
+        base_salary = salary_profile.base_salary if salary_profile.base_salary is not None else salary_profile.monthly_salary
+        initial_annual_salary_usd = base_salary * 12 * cny_to_usd_rate
 
         # 计算401k
         k401_result = self.k401_calculator.calculate_401k_lifetime(
@@ -260,19 +262,19 @@ class USAPlugin(BaseCountryPlugin):
             }
         }
 
-    def get_contribution_scenarios(self, 
-                                 annual_salary: float, 
-                                 years: int = 35, 
+    def get_contribution_scenarios(self,
+                                 annual_salary: float,
+                                 years: int = 35,
                                  investment_rate: float = 0.07) -> List[Dict[str, Any]]:
         """获取不同缴费比例的401K场景分析"""
         return self.k401_calculator.get_contribution_scenarios(annual_salary, years, investment_rate)
-    
+
     def print_detailed_analysis(self,
-                               person: Person,
-                               salary_profile: SalaryProfile,
-                               economic_factors: EconomicFactors,
-                               pension_result: PensionResult,
-                               local_amount: CurrencyAmount):
+                               person,
+                               salary_profile,
+                               economic_factors,
+                               pension_result,
+                               local_amount):
         """打印详细的美国社保和401k分析"""
         self.detailed_analyzer.print_detailed_analysis(
             self, person, salary_profile, economic_factors, pension_result, local_amount

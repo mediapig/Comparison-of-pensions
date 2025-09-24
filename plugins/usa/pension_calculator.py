@@ -58,6 +58,7 @@ class USAPensionCalculator:
             monthly_pension=monthly_benefit,
             total_contribution=total_contribution,
             total_benefit=total_benefit,
+            retirement_account_balance=0.0,  # 社安金没有账户余额概念
             break_even_age=break_even_age,
             roi=roi,
             original_currency="USD",
