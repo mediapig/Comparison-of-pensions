@@ -212,7 +212,7 @@ class SingaporePlugin(BaseCountryPlugin):
 
     def get_retirement_age(self, person: Person) -> int:
         """获取退休年龄"""
-        return 62
+        return 65  # 修正为65岁退休
 
     def print_detailed_analysis(self, 
                                person: Person,
