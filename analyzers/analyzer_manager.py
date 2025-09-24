@@ -9,7 +9,7 @@ from core.pension_engine import PensionEngine
 from plugins.usa.usa_analyzer import USAPensionAnalyzer
 from plugins.hongkong.hongkong_analyzer import HongKongMPFAnalyzer
 from plugins.singapore.singapore_analyzer import SingaporeCPFAnalyzer
-from plugins.china.china_analyzer import ChinaPensionAnalyzer
+# from plugins.china.china_analyzer import ChinaPensionAnalyzer  # 已删除
 from plugins.taiwan.taiwan_analyzer import TaiwanPensionAnalyzer
 from plugins.japan.japan_analyzer import JapanPensionAnalyzer
 from plugins.uk.uk_analyzer import UKPensionAnalyzer
@@ -30,7 +30,7 @@ class AnalyzerManager:
             'US': USAPensionAnalyzer(self.engine),
             'HK': HongKongMPFAnalyzer(self.engine),
             'SG': SingaporeCPFAnalyzer(self.engine),
-            'CN': ChinaPensionAnalyzer(self.engine),
+            # 'CN': ChinaPensionAnalyzer(self.engine),  # 已删除
             'TW': TaiwanPensionAnalyzer(self.engine),
             'JP': JapanPensionAnalyzer(self.engine),
             'UK': UKPensionAnalyzer(self.engine),
