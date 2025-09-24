@@ -11,6 +11,7 @@ import time
 from typing import Dict, Optional, Tuple
 from datetime import datetime, timedelta
 import logging
+from .daily_exchange_rate_cache import DailyExchangeRateCache
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,9 @@ class RealtimeCurrencyConverter:
         self.last_update = None
         self.update_interval = timedelta(minutes=5)  # 5分钟更新一次
         self.cache_duration = timedelta(hours=1)     # 缓存1小时
+        
+        # 使用每日缓存系统
+        self.daily_cache = DailyExchangeRateCache(base_currency=base_currency)
         
         # 支持的货币列表
         self.supported_currencies = {

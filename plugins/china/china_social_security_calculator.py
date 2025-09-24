@@ -217,8 +217,13 @@ class ChinaSocialSecurityCalculator:
                              social_security_deduction: float,
                              housing_fund_deduction: float) -> PersonalTaxResult:
         """计算个人所得税"""
-        # 计算应税收入
-        taxable_income = annual_income - social_security_deduction - housing_fund_deduction - self.params.personal_tax_basic_deduction
+        # 计算应税收入 - 只扣除个人缴费部分，不重复扣除
+        # 个人社保缴费：养老8%+医保2%+失业0.5% = 10.5%
+        # 个人公积金缴费：7%
+        personal_social_security = social_security_deduction  # 已经是个人缴费部分
+        personal_housing_fund = housing_fund_deduction  # 已经是个人缴费部分
+        
+        taxable_income = annual_income - personal_social_security - personal_housing_fund - self.params.personal_tax_basic_deduction
         
         # 计算税额
         tax_amount = 0
@@ -228,16 +233,16 @@ class ChinaSocialSecurityCalculator:
                     tax_amount = taxable_income * rate - deduction
                     break
         
-        # 计算净收入
-        net_income = annual_income - social_security_deduction - housing_fund_deduction - tax_amount
+        # 计算净收入 - 只扣除个人缴费和个税
+        net_income = annual_income - personal_social_security - personal_housing_fund - tax_amount
         
         # 计算有效税率
         effective_rate = tax_amount / annual_income if annual_income > 0 else 0
         
         return PersonalTaxResult(
             annual_income=annual_income,
-            social_security_deduction=social_security_deduction,
-            housing_fund_deduction=housing_fund_deduction,
+            social_security_deduction=personal_social_security,
+            housing_fund_deduction=personal_housing_fund,
             basic_deduction=self.params.personal_tax_basic_deduction,
             taxable_income=taxable_income,
             tax_amount=tax_amount,
@@ -248,7 +253,7 @@ class ChinaSocialSecurityCalculator:
     def calculate_lifetime_pension(self, monthly_salary: float, start_age: int = 30, 
                                  retirement_age: int = 60, salary_growth_rate: float = 0.02) -> ChinaPensionResult:
         """计算终身养老金"""
-        work_years = retirement_age - start_age
+        work_years = retirement_age - start_age  # 30岁到60岁 = 30年工作年限
         
         # 累计缴费
         total_employee_contributions = 0
@@ -363,8 +368,12 @@ class ChinaSocialSecurityCalculator:
         
         for year_offset in range(work_years):
             ss_contribution = self.calculate_social_security_contribution(current_salary)
-            # 医保个人账户（个人缴费2% + 单位缴费部分）
-            medical_contribution = ss_contribution.employee_medical + ss_contribution.employer_medical * 0.3
+            # 医保个人账户：主要是个人缴费2%，单位缴费进入统筹基金
+            # 根据2024年政策，单位缴费的30%左右进入个人账户（各地政策不同）
+            personal_medical = ss_contribution.employee_medical  # 个人缴费2%
+            employer_medical_to_personal = ss_contribution.employer_medical * 0.3  # 单位缴费的30%进入个人账户
+            medical_contribution = personal_medical + employer_medical_to_personal
+            
             # 医保账户年利率约2%
             annual_rate = 0.02
             total_balance += medical_contribution * 12 * ((1 + annual_rate) ** (work_years - year_offset))
