@@ -9,7 +9,7 @@ from core.models import Person, SalaryProfile, EconomicFactors, PensionResult, E
 class JPParams:
     start_age: int = 30
     retire_age: int = 65              # 35 年
-    wage_growth: float = 0.02         # 工资年涨 2%
+    wage_growth: float = 0.0          # 工资年涨 0%
     epi_coef: float = 5.481 / 1000    # 厚生年金系数（年金/年）
     npi_full_annual: float = 780_000  # 国民年金满额/年（40 年）
     npi_full_years: int = 40
@@ -46,7 +46,7 @@ class JapanPensionCalculator(BasePensionCalculator):
         init_salary_month = salary_profile.base_salary
         work_years = 35  # 固定工作35年
         salary_growth = salary_profile.annual_growth_rate
-        
+
         # 调用精确算法
         result = self._calc_japan_pension_pure(
             init_salary_month, work_years, salary_growth
@@ -91,11 +91,11 @@ class JapanPensionCalculator(BasePensionCalculator):
         for year in range(work_years):
             age = current_age + year
             salary = salary_profile.get_salary_at_age(age, person.age)
-            
+
             # 将人民币转换为日元
             cny_to_jpy_rate = 20  # 1 CNY = 20 JPY
             salary_jpy = salary * cny_to_jpy_rate
-            
+
             # 日本厚生年金缴费 18.3%
             personal_contribution = salary_jpy * 0.183 * 12
             employer_contribution = salary_jpy * 0.183 * 12
@@ -127,7 +127,7 @@ class JapanPensionCalculator(BasePensionCalculator):
     def calc_japan_pension(self, initial_monthly_salary_jpy: float, p: JPParams = JPParams()) -> Dict[str, float]:
         """日本养老金精确计算 - DB给付制度"""
         years = p.retire_age - p.start_age  # = 35
-        
+
         # 1) 生成35年工资序列（每年+2%）
         m = initial_monthly_salary_jpy
         monthly_series = []
@@ -192,15 +192,15 @@ class JapanPensionCalculator(BasePensionCalculator):
         # 汇率转换：1 CNY = 20 JPY
         cny_to_jpy_rate = 20
         initial_salary_jpy = initial_salary_cny * cny_to_jpy_rate
-        
+
         # 使用新的参数化方法
         params = JPParams(wage_growth=growth)
         result = self.calc_japan_pension(initial_salary_jpy, params)
-        
+
         # 为了与旧系统兼容，计算总收益和ROI（虽然DB制度不需要）
         total_benefit = result["Total_Monthly"] * 12 * params.annuity_years
         roi = (total_benefit / result["EPI_TotalContrib"] - 1.0) if result["EPI_TotalContrib"] > 0 else 0
-        
+
         return {
             "initial_salary": result["InitialMonthlySalary"],
             "final_salary": result["LastMonthlySalary"],
@@ -218,7 +218,7 @@ if __name__ == "__main__":
     RMB_TO_JPY = 20.0
     high_month_jpy = 50_000 * RMB_TO_JPY   # 5万 RMB / 月
     low_month_jpy  = 5_000  * RMB_TO_JPY   # 5千 RMB / 月
-    
+
     calculator = JapanPensionCalculator()
     high = calculator.calc_japan_pension(high_month_jpy)
     low  = calculator.calc_japan_pension(low_month_jpy)
@@ -228,17 +228,17 @@ if __name__ == "__main__":
         print(f"年限: {d['Years']} 年")
         print(f"首月薪: ¥{d['InitialMonthlySalary']:,.0f}  | 末年实月薪: ¥{d['LastMonthlySalary']:,.0f}")
         print(f"平均月薪: ¥{d['AvgMonthlySalary']:,.0f}")
-        
+
         print("\n📊 养老金给付（DB）")
         print(f"  国民年金(NPI): ¥{d['NPI_Monthly']:,.0f}/月")
         print(f"  厚生年金(EPI): ¥{d['EPI_Monthly']:,.0f}/月  （系数 5.481‰，年资 {d['Years']} 年）")
         print(f"  合计:           ¥{d['Total_Monthly']:,.0f}/月")
         print(f"  替代率（对比末年实际月薪）: {d['Replacement_vs_LastMonth']*100:.1f}%")
-        
+
         print("\n💰 厚生年金累计缴费（仅统计口径）")
         print(f"  合计费率: {d['EPI_Rate_Total']*100:.1f}% ＝ 员工 {d['EPI_Rate_Employee']*100:.2f}% + 雇主 {d['EPI_Rate_Employer']*100:.2f}%")
         print(f"  累计缴费（合计）: ¥{d['EPI_TotalContrib']:,.0f} ＝ 员工 ¥{d['EPI_EmployeeContrib']:,.0f} + 雇主 ¥{d['EPI_EmployerContrib']:,.0f}")
-        
+
         print("\nℹ️ 说明：日本公共年金为 DB 给付，不计算\"总收益 / ROI / 回本年龄\"。")
 
     p("日本-高收入（¥50k RMB/月）", high)

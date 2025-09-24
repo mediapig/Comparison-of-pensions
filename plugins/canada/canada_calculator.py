@@ -8,7 +8,7 @@ from core.models import Person, SalaryProfile, EconomicFactors, PensionResult, E
 # ===== 常量（2025） =====
 START_AGE, RETIRE_AGE = 30, 65
 YEARS = RETIRE_AGE - START_AGE       # 35
-WAGE_GROWTH = 0.02
+WAGE_GROWTH = 0.0
 
 CPP_RATE_EMP = 0.0595
 CPP_RATE_ER  = 0.0595
@@ -78,7 +78,7 @@ class CanadaPensionCalculator(BasePensionCalculator):
         init_salary_month = salary_profile.base_salary
         work_years = 35  # 固定工作35年
         salary_growth = salary_profile.annual_growth_rate
-        
+
         # 调用精确算法
         result = self._calc_canada_pension_pure(
             init_salary_month, work_years, salary_growth
@@ -157,7 +157,7 @@ class CanadaPensionCalculator(BasePensionCalculator):
 
     def calc_canada_pension(self, initial_annual_salary_cad: float) -> Dict[str, float]:
         """加拿大养老金精确计算 - 2025标准（CPP+CPP2+OAS制度）"""
-        
+
         # ===== 逐年统计：工资增长 + CPP 缴费 & 计算平均可计缴工资比例 =====
         salary = initial_annual_salary_cad       # 由人民币换算后的年薪（CAD）
         sum_pensionable = 0.0
@@ -221,10 +221,10 @@ class CanadaPensionCalculator(BasePensionCalculator):
         """精确的加拿大养老金计算算法 - DB制度（不计算ROI）"""
         # 汇率转换：1 CNY = 0.19 CAD
         initial_annual_salary_cad = initial_salary_cny * 12 * CNY_TO_CAD_RATE
-        
+
         # 使用新的2025标准方法
         result = self.calc_canada_pension(initial_annual_salary_cad)
-        
+
         # DB制度：不计算总收益、ROI、回本年龄
         # 仅返回给付信息和缴费统计
         return {
@@ -257,7 +257,7 @@ class CanadaPensionCalculator(BasePensionCalculator):
 if __name__ == "__main__":
     high_annual_cad = 50_000 * 12 * CNY_TO_CAD_RATE   # 5万 RMB / 月
     low_annual_cad  = 5_000  * 12 * CNY_TO_CAD_RATE   # 5千 RMB / 月
-    
+
     calculator = CanadaPensionCalculator()
     high = calculator.calc_canada_pension(high_annual_cad)
     low  = calculator.calc_canada_pension(low_annual_cad)
@@ -267,17 +267,17 @@ if __name__ == "__main__":
         print(f"年限: {d['Years']} 年")
         print(f"首年年薪: ${d['InitialAnnualSalary']:,.0f}  | 末年年薪: ${d['LastAnnualSalary']:,.0f}")
         print(f"首月薪: ${d['InitialMonthlySalary']:,.0f}  | 末年实月薪: ${d['LastMonthlySalary']:,.0f}")
-        
+
         print("\n📊 养老金给付（公共年金制）")
         print(f"  CPP: ${d['CPP_Annual']:,.0f}/年 | OAS: ${d['OAS_Annual']:,.0f}/年")
         print(f"  合计: ${d['Total_Annual']:,.0f}/年 ≈ ${d['Total_Monthly']:,.0f}/月")
         print(f"  替代率（对比末年年薪）: {d['Replacement_vs_LastYear']*100:.1f}%")
-        
+
         print("\n💰 CPP 累计缴费（仅统计口径）")
         print(f"  费率: 员工 5.95% + 雇主 5.95%（第一层；第二层各 4%）")
         print(f"  员工累计: ${d['CPP_EmployeeContrib']:,.0f} | 雇主累计: ${d['CPP_EmployerContrib']:,.0f} | 合计: ${d['CPP_TotalContrib']:,.0f}")
         print(f"  平均可计缴工资: ${d['AvgPensionable']:,.0f} (比例: {d['AvgRatio']*100:.1f}%)")
-        
+
         print("\nℹ️ 说明：CPP 与 OAS 为公共年金（DB/准DB），不计算总收益、投资回报率与回本年龄。")
         print("    OAS = 734.95(2025Q3, 65–74) × 12 × (居住年限/40) = 734.95×12×(35/40) ≈ 7,716.98/年")
         print("    CPP 满额口径采用：17,196/年（2025），并按年资与平均可计缴工资比例折算")

@@ -112,19 +112,18 @@ class AnnualAnalyzer:
         else:
             initial_monthly_salary = local_amount.amount
         
-        # 创建测试数据 - 确保当前年份是start_age岁
-        current_year = date.today().year
-        person = Person(
-            name="分析用户",
-            birth_date=date(current_year - start_age, 1, 1),  # 当前年份时start_age岁
-            gender=Gender.MALE,
-            employment_type=EmploymentType.EMPLOYEE,
-            start_work_date=date(current_year, 1, 1)  # 当前年份开始工作
-        )
+        # 让插件自己创建Person对象
+        person = plugin.create_person(start_age)
 
-        # 获取退休年龄
+        # 获取退休年龄 - 让插件自己决定
         if retirement_age is None:
-            retirement_age = plugin.get_retirement_age(person)
+            # 根据国家代码设置默认退休年龄
+            if country_code == 'CN':
+                retirement_age = 62  # 中国：30-62岁
+            elif country_code == 'SG':
+                retirement_age = 65  # 新加坡：30-65岁
+            else:
+                retirement_age = plugin.get_retirement_age(person)
 
         work_years = retirement_age - start_age
         if work_years <= 0:
@@ -140,7 +139,7 @@ class AnnualAnalyzer:
 
         # 计算退休分析
         retirement_analysis = self._calculate_retirement_analysis(
-            plugin, person, initial_monthly_salary, work_years, plugin.CURRENCY
+            plugin, person, initial_monthly_salary, work_years, plugin.CURRENCY, start_age
         )
 
         return AnnualAnalysisResult(
@@ -165,8 +164,8 @@ class AnnualAnalyzer:
         annual_data = []
         work_years = retirement_age - start_age
         
-        # 工资增长率（假设3%）
-        salary_growth_rate = 0.03
+        # 工资增长率（设置为0 - 不考虑任何增长）
+        salary_growth_rate = 0.0
         
         current_monthly_salary = initial_monthly_salary
         
@@ -269,7 +268,8 @@ class AnnualAnalyzer:
                                      person: Person, 
                                      monthly_salary: float,
                                      work_years: int,
-                                     currency: str) -> RetirementAnalysis:
+                                     currency: str,
+                                     start_age: int) -> RetirementAnalysis:
         """计算退休分析"""
         # 创建薪资档案
         salary_profile = SalaryProfile(

@@ -111,16 +111,16 @@ class HongKongPensionCalculator(BasePensionCalculator):
             max_income = 30000.0  # HK$/月
             emp_rate = 0.05  # 雇员 5%
             er_rate = 0.05   # 雇主 5%
-            
+
             # 工资上下限约束
             income = max(min_income, min(salary_hkd, max_income))
-            
+
             # 个人缴费（月薪低于下限时不缴费）
             emp_contrib = income * emp_rate if salary_hkd >= min_income else 0.0
-            
+
             # 雇主缴费（总是缴费）
             er_contrib = income * er_rate
-            
+
             # 总缴费
             total_contribution = emp_contrib + er_contrib
 
@@ -164,7 +164,7 @@ class HongKongPensionCalculator(BasePensionCalculator):
 
         # MPF参数
         annual_return = 0.04      # 投资年化收益率 4%
-        wage_growth = 0.02        # 工资年增长 2%
+        wage_growth = 0.0         # 工资年增长 0%
         retire_return = 0.03      # 退休期折现率 3%
         retire_years = 20         # 退休后领取年限
         min_income = 7100.0       # HK$/月
@@ -177,11 +177,11 @@ class HongKongPensionCalculator(BasePensionCalculator):
         # 初始化
         balance = 0.0
         total_contrib = 0.0
-        
+
         # 获取初始月薪
         initial_salary = contribution_history[0]['salary']
         current_salary = initial_salary
-        
+
         # 计算工作年数
         years = retire_age - start_age     # 30→65 应为 35
         months = years * 12
@@ -189,51 +189,51 @@ class HongKongPensionCalculator(BasePensionCalculator):
             for month in range(12):
                 # 员工缴费：工资 < min_income → 0；否则按 min(工资, max_income)
                 emp_base = min(current_salary, max_income) if current_salary >= min_income else 0.0
-                
+
                 # 雇主缴费：始终按 min(工资, max_income)（不抬高到 min_income）
                 er_base = min(current_salary, max_income)
-                
+
                 emp = emp_base * emp_rate
                 er = er_base * er_rate
                 contrib = emp + er
-                
+
                 # 账户余额按月复利增长
                 balance = balance * (1 + annual_return/12.0) + contrib
                 total_contrib += contrib
-            
+
             # 工资年增长在年末做
             current_salary *= (1 + wage_growth)
-        
+
         final_balance = balance
-        
+
         # 计算累计个人和雇主缴费（用于统计）
         total_emp_contrib = 0.0
         total_er_contrib = 0.0
         salary = initial_salary
-        
+
         for year_idx in range(years):
             for month in range(12):
                 # 员工缴费基数
                 emp_base = min(salary, max_income) if salary >= min_income else 0.0
                 # 雇主缴费基数
                 er_base = min(salary, max_income)
-                
+
                 emp = emp_base * emp_rate
                 er = er_base * er_rate
                 total_emp_contrib += emp
                 total_er_contrib += er
             # 工资年增长在年末做
             salary *= (1 + wage_growth)
-        
+
         # 计算收益
         total_return = final_balance - total_contrib
         roi_pct = final_balance / total_contrib - 1.0 if total_contrib > 0 else 0.0
-        
+
         # 年金换算月养老金
         i = retire_return / 12.0
         n = retire_years * 12
         monthly_pension = (final_balance * i / (1 - (1 + i) ** -n)) if i > 0 else final_balance / n
-        
+
         return {
             "MPF_balance": final_balance,
             "MPF_monthly_pension": monthly_pension,
