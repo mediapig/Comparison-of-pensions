@@ -277,7 +277,13 @@ class ChinaSocialSecurityCalculator:
         # 计算养老金
         # 基础养老金 = (退休时社平工资 + 本人指数化月平均工资) / 2 × 缴费年限 × 1%
         avg_salary_at_retirement = self._get_avg_salary(2024 + work_years)
-        indexed_avg_salary = avg_salary_at_retirement  # 简化计算
+        
+        # 计算本人指数化月平均工资（基于实际缴费基数）
+        # 简化计算：使用平均缴费基数，但不超过社平工资的3倍
+        avg_contribution_base = min(monthly_salary, avg_salary_at_retirement * 3)
+        indexed_avg_salary = avg_contribution_base
+        
+        # 基础养老金 = (退休时社平工资 + 本人指数化月平均工资) / 2 × 缴费年限 × 1%
         basic_pension = (avg_salary_at_retirement + indexed_avg_salary) / 2 * work_years * 0.01
         
         # 个人账户养老金 = 个人账户储存额 / 计发月数
