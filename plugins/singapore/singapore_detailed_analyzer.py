@@ -83,46 +83,43 @@ class SingaporeDetailedAnalyzer:
         monthly_pension = pension_result.monthly_pension
         annual_pension = monthly_pension * 12
         
-        # 计算最终账户余额（退休开始时65岁的账户余额）
+        # 计算最终账户余额（90岁去世时的实际余额）
         final_accounts = {}
-        if hasattr(pension_result, 'details') and pension_result.details and 'cpf_accounts' in pension_result.details:
-            accounts = pension_result.details['cpf_accounts']
+        try:
+            # 获取CPF计算器的结果
+            lifetime_result = plugin.cpf_calculator.calculate_lifetime_cpf(
+                salary_profile.monthly_salary, 
+                person.age if person.age > 0 else 30, 
+                plugin.get_retirement_age(person)
+            )
+            
+            # 获取65岁退休时的账户余额
+            final_balances_65 = lifetime_result['final_balances']
+            
+            # 计算90岁去世时的实际余额
+            # RA账户在CPF Life Standard计划中应该在90岁时用完
+            # OA和MA账户会保留并继续计息到90岁
+            oa_balance_90 = final_balances_65.get('oa_balance', 0) * (1.025 ** 25)  # OA年息2.5%，25年
+            ma_balance_90 = final_balances_65.get('ma_balance', 0) * (1.04 ** 25)    # MA年息4%，25年
+            ra_balance_90 = 0  # RA账户在CPF Life Standard计划中应该在90岁时用完
+            sa_balance_90 = 0  # SA已全部转入RA
+            
             final_accounts = {
-                "普通账户_OA": accounts.get('oa_balance', 0),
-                "特别账户_SA": accounts.get('sa_balance', 0),
-                "医疗账户_MA": accounts.get('ma_balance', 0),
-                "退休账户_RA": accounts.get('ra_balance', 0),
-                "总余额": sum([accounts.get('oa_balance', 0), accounts.get('sa_balance', 0), 
-                              accounts.get('ma_balance', 0), accounts.get('ra_balance', 0)])
+                "普通账户_OA": oa_balance_90,
+                "特别账户_SA": sa_balance_90,
+                "医疗账户_MA": ma_balance_90,
+                "退休账户_RA": ra_balance_90,
+                "总余额": oa_balance_90 + sa_balance_90 + ma_balance_90 + ra_balance_90
             }
-        else:
-            # 如果details中没有数据，使用默认值或从其他地方获取
-            # 这里我们可以从lifetime_result中获取数据
-            try:
-                # 尝试从插件获取CPF计算器的结果
-                lifetime_result = plugin.cpf_calculator.calculate_lifetime_cpf(
-                    salary_profile.monthly_salary, 
-                    person.age if person.age > 0 else 30, 
-                    plugin.get_retirement_age(person)
-                )
-                final_balances = lifetime_result['final_balances']
-                final_accounts = {
-                    "普通账户_OA": final_balances.get('oa_balance', 0),
-                    "特别账户_SA": final_balances.get('sa_balance', 0),
-                    "医疗账户_MA": final_balances.get('ma_balance', 0),
-                    "退休账户_RA": final_balances.get('ra_balance', 0),
-                    "总余额": sum([final_balances.get('oa_balance', 0), final_balances.get('sa_balance', 0), 
-                                  final_balances.get('ma_balance', 0), final_balances.get('ra_balance', 0)])
-                }
-            except Exception as e:
-                # 如果获取失败，使用空值
-                final_accounts = {
-                    "普通账户_OA": 0,
-                    "特别账户_SA": 0,
-                    "医疗账户_MA": 0,
-                    "退休账户_RA": 0,
-                    "总余额": 0
-                }
+        except Exception as e:
+            # 如果获取失败，使用空值
+            final_accounts = {
+                "普通账户_OA": 0,
+                "特别账户_SA": 0,
+                "医疗账户_MA": 0,
+                "退休账户_RA": 0,
+                "总余额": 0
+            }
         
         # 计算人民币对比
         monthly_pension_cny = self.smart_converter.convert_to_local(
