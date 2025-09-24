@@ -216,15 +216,8 @@ class SmartPensionComparisonApp:
             start_work_date=date(2024, 1, 1)
         )
 
-        # 智能判断年薪还是月薪
-        # 对于中国，如果金额大于50,000，很可能是年薪
-        if country_code == "CN" and local_amount.amount > 50000:
-            monthly_salary = local_amount.amount / 12  # 年薪转月薪
-        else:
-            monthly_salary = local_amount.amount  # 月薪
-        
         salary_profile = SalaryProfile(
-            monthly_salary=monthly_salary,
+            monthly_salary=local_amount.amount / 12,  # 年薪转月薪
             annual_growth_rate=0.03,
             contribution_start_age=22
         )
@@ -288,14 +281,8 @@ class SmartPensionComparisonApp:
                 # 转换为本地货币
                 local_amount = self.smart_converter.convert_to_local(currency_amount, plugin.CURRENCY)
 
-                # 智能判断年薪还是月薪
-                if country_code == "CN" and local_amount.amount > 50000:
-                    monthly_salary = local_amount.amount / 12  # 年薪转月薪
-                else:
-                    monthly_salary = local_amount.amount  # 月薪
-                
                 salary_profile = SalaryProfile(
-                    monthly_salary=monthly_salary,
+                    monthly_salary=local_amount.amount / 12,  # 年薪转月薪
                     annual_growth_rate=0.03,
                     contribution_start_age=22
                 )

@@ -15,6 +15,7 @@ from .config import ChinaConfig
 from .china_tax_calculator import ChinaTaxCalculator
 from .pension_calculator import ChinaPensionCalculator
 from .china_social_security_calculator import ChinaSocialSecurityCalculator, ChinaSocialSecurityParams
+from .china_optimized_calculator import ChinaOptimizedCalculator, ChinaOptimizedParams
 from .china_detailed_analyzer import ChinaDetailedAnalyzer
 
 class ChinaPlugin(BaseCountryPlugin):
@@ -29,6 +30,7 @@ class ChinaPlugin(BaseCountryPlugin):
         self.tax_calculator = ChinaTaxCalculator()
         self.pension_calculator = ChinaPensionCalculator()
         self.social_security_calculator = ChinaSocialSecurityCalculator()
+        self.optimized_calculator = ChinaOptimizedCalculator()
         self.detailed_analyzer = ChinaDetailedAnalyzer()
 
     def _load_config(self) -> PluginConfig:
@@ -46,17 +48,17 @@ class ChinaPlugin(BaseCountryPlugin):
                          person: Person,
                          salary_profile: SalaryProfile,
                          economic_factors: EconomicFactors) -> PensionResult:
-        """计算退休金 - 使用新的社保计算器"""
+        """计算退休金 - 使用优化的7步算法计算器"""
         # 获取退休年龄
         retirement_age = self.get_retirement_age(person)
         start_age = person.age if person.age > 0 else 30
         
-        # 使用新的社保计算器计算养老金
-        pension_result = self.social_security_calculator.calculate_lifetime_pension(
-            monthly_salary=salary_profile.monthly_salary,
-            start_age=start_age,
-            retirement_age=retirement_age,
-            salary_growth_rate=salary_profile.annual_growth_rate
+        # 使用优化的7步算法计算器计算养老金
+        annual_income = salary_profile.monthly_salary * 12
+        pension_result = self.optimized_calculator.calculate_lifetime(
+            initial_gross_income=annual_income,
+            salary_growth_rate=salary_profile.annual_growth_rate,
+            hf_rate=0.07  # 默认公积金比例7%
         )
         
         # 转换为PensionResult格式
@@ -64,19 +66,19 @@ class ChinaPlugin(BaseCountryPlugin):
             monthly_pension=pension_result.monthly_pension,
             total_contribution=pension_result.total_contributions,
             total_benefit=pension_result.total_benefits,
-            retirement_account_balance=pension_result.housing_fund_balance + pension_result.medical_account_balance,
+            retirement_account_balance=pension_result.final_housing_fund_balance,
             break_even_age=pension_result.break_even_age,
             roi=pension_result.roi * 100,  # 转换为百分比
             original_currency=self.CURRENCY,
             details={
-                'work_years': pension_result.work_years,
+                'work_years': pension_result.total_work_years,
                 'retirement_age': retirement_age,
-                'basic_pension': pension_result.basic_pension,
-                'personal_account_pension': pension_result.personal_account_pension,
-                'housing_fund_balance': pension_result.housing_fund_balance,
-                'medical_account_balance': pension_result.medical_account_balance,
+                'basic_pension': pension_result.monthly_pension * 0.6,  # 估算基础养老金
+                'personal_account_pension': pension_result.monthly_pension * 0.4,  # 估算个人账户养老金
+                'housing_fund_balance': pension_result.final_housing_fund_balance,
                 'total_employee_contributions': pension_result.total_employee_contributions,
-                'total_employer_contributions': pension_result.total_employer_contributions
+                'total_employer_contributions': pension_result.total_employer_contributions,
+                'final_pension_account_balance': pension_result.final_pension_account_balance
             }
         )
 
@@ -97,22 +99,31 @@ class ChinaPlugin(BaseCountryPlugin):
                                 monthly_salary: float,
                                 years: int,
                                 **kwargs) -> Dict[str, float]:
-        """计算社保缴费 - 使用新的社保计算器"""
-        # 使用新的社保计算器计算年度缴费
-        ss_contribution = self.social_security_calculator.calculate_social_security_contribution(monthly_salary)
-        hf_contribution = self.social_security_calculator.calculate_housing_fund_contribution(monthly_salary)
+        """计算社保缴费 - 使用优化的7步算法计算器"""
+        # 使用优化的7步算法计算器计算年度缴费
+        annual_income = monthly_salary * 12
+        avg_wage = self.optimized_calculator.params.avg_wage_2024
+        
+        # 计算第一年详细结果
+        yearly_result = self.optimized_calculator.calculate_yearly(
+            year=2024, 
+            age=30, 
+            gross_income=annual_income, 
+            avg_wage=avg_wage, 
+            hf_rate=0.07
+        )
         
         return {
-            'monthly_employee': ss_contribution.employee_total,
-            'monthly_employer': ss_contribution.employer_total,
-            'total_employee': ss_contribution.employee_total * 12 * years,
-            'total_employer': ss_contribution.employer_total * 12 * years,
-            'total_lifetime': ss_contribution.total_contribution * 12 * years,
-            'housing_fund_employee': hf_contribution.employee_contribution,
-            'housing_fund_employer': hf_contribution.employer_contribution,
-            'housing_fund_total': hf_contribution.total_contribution * 12 * years,
-            'contribution_base': ss_contribution.contribution_base,
-            'housing_fund_base': hf_contribution.contribution_base
+            'monthly_employee': yearly_result.emp_total_si / 12,
+            'monthly_employer': yearly_result.er_total_si / 12,
+            'total_employee': yearly_result.emp_total_si * years,
+            'total_employer': yearly_result.er_total_si * years,
+            'total_lifetime': (yearly_result.emp_total_si + yearly_result.er_total_si) * years,
+            'housing_fund_employee': yearly_result.emp_hf / 12,
+            'housing_fund_employer': yearly_result.er_hf / 12,
+            'housing_fund_total': (yearly_result.emp_hf + yearly_result.er_hf) * years,
+            'contribution_base': yearly_result.si_base_month,
+            'housing_fund_base': yearly_result.hf_base_month
         }
 
     def get_retirement_age(self, person: Person) -> int:

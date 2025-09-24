@@ -106,13 +106,11 @@ class ChinaPensionCalculator:
                                     economic_factors: EconomicFactors) -> List[Dict[str, Any]]:
         """计算缴费历史"""
         retirement_age = 60  # 默认60岁退休
-        work_years = retirement_age - person.age
-
-        if work_years <= 0:
-            work_years = person.work_years
+        start_age = 30  # 固定30岁开始工作
+        work_years = retirement_age - start_age  # 30岁到60岁 = 30年工作年限
 
         history = []
-        current_age = person.age
+        current_age = start_age
 
         for year in range(work_years):
             age = current_age + year
@@ -255,42 +253,29 @@ class ChinaPensionCalculator:
         last_record = contribution_history[-1]
         last_year_salary = last_record['salary'] * 12
 
-        # 计算社保扣除（个人缴费部分）
+        # 计算社保扣除（个人缴费部分：养老8%+医保2%+失业0.5% = 10.5%）
         social_security_deduction = total_emp
 
-        # 假设住房公积金缴费比例（通常为12%）
-        housing_fund_rate = 0.12
+        # 住房公积金缴费比例（个人7%）
+        housing_fund_rate = 0.07  # 修正为7%，与用户参数一致
         housing_fund_deduction = last_year_salary * housing_fund_rate
 
-        # 设置专项附加扣除
-        deductions = {
-            'social_security': social_security_deduction,
-            'housing_fund': housing_fund_deduction,
-            'education': 12000,      # 子女教育
-            'housing': 12000,        # 住房租金/房贷利息
-            'elderly': 24000,        # 赡养老人
-            'medical': 0,            # 大病医疗
-            'continuing_education': 0, # 继续教育
-            'other': 0               # 其他扣除
-        }
-
-        # 简化的税收计算
+        # 计算应税收入：年收入 - 基本减除 - 个人社保 - 个人公积金
         basic_deduction = 60000  # 基本减除费用
-        total_deductions = basic_deduction + sum(deductions.values())
-        taxable_income = max(0, last_year_salary - total_deductions)
+        taxable_income = max(0, last_year_salary - basic_deduction - social_security_deduction - housing_fund_deduction)
 
         # 简化的个税计算（使用累进税率）
         if taxable_income <= 36000:
             total_tax = taxable_income * 0.03
         elif taxable_income <= 144000:
-            total_tax = 36000 * 0.03 + (taxable_income - 36000) * 0.10
+            total_tax = taxable_income * 0.10 - 2520  # 使用速算扣除数
         elif taxable_income <= 300000:
-            total_tax = 36000 * 0.03 + 108000 * 0.10 + (taxable_income - 144000) * 0.20
+            total_tax = taxable_income * 0.20 - 16920
         else:
-            total_tax = 36000 * 0.03 + 108000 * 0.10 + 156000 * 0.20 + (taxable_income - 300000) * 0.25
+            total_tax = taxable_income * 0.25 - 31920
 
-        # 计算税后净收入
-        net_income = last_year_salary - total_tax
+        # 计算税后净收入：年收入 - 个人社保 - 个人公积金 - 个税
+        net_income = last_year_salary - social_security_deduction - housing_fund_deduction - total_tax
         monthly_net_income = net_income / 12
         effective_tax_rate = (total_tax / last_year_salary * 100) if last_year_salary > 0 else 0
 
