@@ -278,13 +278,13 @@ class NorwayPensionCalculator:
         annual_total_ss_contribution = annual_employee_ss_contribution + annual_employer_ss_contribution
 
         # 2. 养老金计提 (基于18.1%的积累率，进入名义账户)
-        # 考虑工资指数化增长 (假设年增长2%)
-        wage_index_growth = 0.02
+        # 工资增长设置为0
+        wage_index_growth = 0.0
         total_pension_accrual = 0
-
+        
         for year in range(work_years):
-            # 每年工资按指数增长
-            year_salary = annual_salary * (1 + wage_index_growth) ** year
+            # 每年工资不变
+            year_salary = annual_salary
             year_capped_salary = min(year_salary, income_cap)
             year_accrual = year_capped_salary * self.pension_parameters['accrual_rate']
             total_pension_accrual += year_accrual
