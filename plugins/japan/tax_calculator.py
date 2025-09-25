@@ -31,14 +31,17 @@ class JapanTaxCalculator:
         if deductions is None:
             deductions = {}
 
-        # 基本控除（2024年）
-        basic_deduction = 480000
+        # 1. 工资所得控除（給与所得控除）
+        salary_deduction = self._calculate_salary_deduction(annual_income)
+        
+        # 2. 基础控除（基礎控除）
+        basic_deduction = self._calculate_basic_deduction(annual_income)
 
-        # 厚生年金扣除
+        # 3. 厚生年金扣除（社保缴费扣除）
         pension_deduction = min(annual_income * 0.09175, 1080000)  # 最大108万日元
 
         # 总扣除额
-        total_deductions = basic_deduction + pension_deduction + sum(deductions.values())
+        total_deductions = salary_deduction + basic_deduction + pension_deduction + sum(deductions.values())
 
         # 应纳税所得额
         taxable_income = max(0, annual_income - total_deductions)
@@ -81,6 +84,7 @@ class JapanTaxCalculator:
             'taxable_income': taxable_income,
             'total_deductions': total_deductions,
             'breakdown': {
+                'salary_deduction': salary_deduction,
                 'basic_deduction': basic_deduction,
                 'pension_deduction': pension_deduction,
                 'other_deductions': sum(deductions.values()),
@@ -99,3 +103,42 @@ class JapanTaxCalculator:
         tax_result = self.calculate_income_tax(annual_income, deductions)
         total_tax = tax_result.get('total_tax', 0)
         return annual_income - total_tax
+
+    def _calculate_salary_deduction(self, annual_income: float) -> float:
+        """
+        计算工资所得控除（給与所得控除）
+        按照日本税法规定的梯度计算
+        """
+        if annual_income <= 1800000:
+            # ≤1.8M：40%−100k
+            return annual_income * 0.4 - 100000
+        elif annual_income <= 3600000:
+            # ≤3.6M：30%+80k
+            return annual_income * 0.3 + 80000
+        elif annual_income <= 6600000:
+            # ≤6.6M：20%+440k（5M 案例 → 1,440,000）
+            return annual_income * 0.2 + 440000
+        elif annual_income <= 8500000:
+            # ≤8.5M：10%+1,100k
+            return annual_income * 0.1 + 1100000
+        else:
+            # ＞8.5M：1,950,000（封顶）（20M 案例 → 1,950,000）
+            return 1950000
+
+    def _calculate_basic_deduction(self, annual_income: float) -> float:
+        """
+        计算基础控除（基礎控除）
+        高收入者有调减
+        """
+        if annual_income <= 24000000:
+            # 一般情况：480,000
+            return 480000
+        elif annual_income <= 24500000:
+            # 24M-24.5M：320,000
+            return 320000
+        elif annual_income <= 25000000:
+            # 24.5M-25M：160,000
+            return 160000
+        else:
+            # 25M以上：0
+            return 0

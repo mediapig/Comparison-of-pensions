@@ -34,21 +34,23 @@ def calc_income_tax_corrected(taxable_income: float) -> float:
     return tax
 
 def calc_salary_deduction(annual_salary: float) -> float:
-    """计算工资所得控除（2024年）"""
-    if annual_salary <= 1_620_000:
-        return 550_000
-    elif annual_salary <= 1_800_000:
-        return annual_salary * 0.65
+    """计算工资所得控除（2024年）- 正确的梯度计算"""
+    # 按照用户提供的正确梯度计算
+    if annual_salary <= 1_800_000:
+        # ≤1.8M：40%−100k
+        return annual_salary * 0.4 - 100_000
     elif annual_salary <= 3_600_000:
-        return annual_salary * 0.65
+        # ≤3.6M：30%+80k
+        return annual_salary * 0.3 + 80_000
     elif annual_salary <= 6_600_000:
-        return annual_salary * 0.65
+        # ≤6.6M：20%+440k（5M 案例 → 1,440,000）
+        return annual_salary * 0.2 + 440_000
     elif annual_salary <= 8_500_000:
-        return annual_salary * 0.65
-    elif annual_salary <= 10_000_000:
-        return annual_salary * 0.65
+        # ≤8.5M：10%+1,100k
+        return annual_salary * 0.1 + 1_100_000
     else:
-        return min(annual_salary * 0.65, 2_200_000)
+        # ＞8.5M：1,950,000（封顶）（20M 案例 → 1,950,000）
+        return 1_950_000
 
 def calc_social_security_corrected(monthly_salary: float) -> Dict[str, float]:
     """计算社保缴费（修正版）"""
