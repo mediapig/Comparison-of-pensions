@@ -11,9 +11,7 @@ from core.base_plugin import BaseCountryPlugin, PluginConfig
 from core.models import Person, SalaryProfile, EconomicFactors, PensionResult
 from .config import JapanConfig
 from .tax_calculator import JapanTaxCalculator
-from .pension_calculator import JapanPensionCalculator
 from .japan_detailed_analyzer import JapanDetailedAnalyzer
-from .japan_enhanced_calculator import JapanEnhancedCalculator
 from .japan_corrected_calculator import JapanCorrectedCalculator
 
 class JapanPlugin(BaseCountryPlugin):
@@ -26,8 +24,6 @@ class JapanPlugin(BaseCountryPlugin):
     def __init__(self):
         super().__init__()
         self.tax_calculator = JapanTaxCalculator()
-        self.pension_calculator = JapanPensionCalculator()
-        self.enhanced_calculator = JapanEnhancedCalculator()
         self.corrected_calculator = JapanCorrectedCalculator()
         self.detailed_analyzer = JapanDetailedAnalyzer(None)  # 将在需要时设置engine
 
@@ -61,7 +57,14 @@ class JapanPlugin(BaseCountryPlugin):
             'total_tax': tax_result.get('total_tax', 0),
             'taxable_income': tax_result.get('taxable_income', 0),
             'effective_rate': tax_result.get('effective_rate', 0),
-            'net_income': tax_result.get('net_income', 0)
+            'net_income': tax_result.get('net_income', 0),
+            'total_deductions': sum(tax_result.get('deductions', {}).values()),
+            'breakdown': {
+                'salary_deduction': tax_result.get('deductions', {}).get('salary_deduction', 0),
+                'basic_deduction': tax_result.get('deductions', {}).get('basic_deduction', 0),
+                'pension_deduction': tax_result.get('deductions', {}).get('ss_deduction', 0),
+                'other_deductions': 0
+            }
         }
 
     def calculate_social_security(self,
