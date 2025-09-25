@@ -12,6 +12,7 @@ from core.models import Person, SalaryProfile, EconomicFactors, PensionResult
 from .config import JapanConfig
 from .tax_calculator import JapanTaxCalculator
 from .pension_calculator import JapanPensionCalculator
+from .japan_detailed_analyzer import JapanDetailedAnalyzer
 
 class JapanPlugin(BaseCountryPlugin):
     """日本插件"""
@@ -24,6 +25,7 @@ class JapanPlugin(BaseCountryPlugin):
         super().__init__()
         self.tax_calculator = JapanTaxCalculator()
         self.pension_calculator = JapanPensionCalculator()
+        self.detailed_analyzer = JapanDetailedAnalyzer(None)  # 将在需要时设置engine
 
     def _load_config(self) -> PluginConfig:
         """加载配置"""
@@ -95,3 +97,12 @@ class JapanPlugin(BaseCountryPlugin):
             "employer": 0.09175,    # 雇主缴费9.175%
             "total": 0.1835         # 总缴费比例18.35%
         }
+    
+    def print_detailed_analysis(self, person: Person, salary_profile: SalaryProfile,
+                              economic_factors: EconomicFactors, pension_result, 
+                              currency_amount):
+        """打印详细分析结果"""
+        # 调用详细分析器
+        self.detailed_analyzer.print_detailed_analysis(
+            person, salary_profile, economic_factors, pension_result, currency_amount
+        )
