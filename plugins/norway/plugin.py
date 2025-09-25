@@ -115,17 +115,17 @@ class NorwayPlugin(BaseCountryPlugin):
             'social_security_rate': 0.22,
             'tax_rate': 0.44
         }
-    
-    def print_detailed_analysis(self, 
-                              person: Person, 
-                              salary_profile: SalaryProfile, 
+
+    def print_detailed_analysis(self,
+                              person: Person,
+                              salary_profile: SalaryProfile,
                               economic_factors: EconomicFactors,
                               pension_result: PensionResult,
                               local_amount) -> None:
         """打印详细分析结果"""
         # 计算养老金
         pension_result = self.calculate_pension(person, salary_profile, economic_factors)
-        
+
         # 打印详细分析
         self.detailed_analyzer.print_detailed_analysis(
             person, salary_profile, economic_factors, pension_result
