@@ -99,8 +99,10 @@ def calc_pension_corrected(monthly_salary: float, work_years: int) -> Dict[str, 
     kokumin_monthly = 66_250 * kokumin_rate
     
     # 厚生年金：平均标准报酬月额 × (5.481/1000) × 加入月数
+    # 注意：这里应该计算年额，然后除以12得到月额
     kosei_base = min(monthly_salary, 650_000)  # 厚生年金上限
-    kosei_monthly = kosei_base * (5.481 / 1000) * work_years * 12 / (work_years * 12)
+    kosei_annual = kosei_base * (5.481 / 1000) * work_years * 12  # 年额
+    kosei_monthly = kosei_annual / 12  # 月额
     
     total_monthly = kokumin_monthly + kosei_monthly
     
