@@ -260,149 +260,179 @@ class NorwayPensionCalculator:
 
         return history
 
-    def _calculate_national_pension(self,
-                                  salary_profile: SalaryProfile,
+    def _get_distribution_factor(self, retirement_age: int) -> float:
+        """计算退休分配系数"""
+        # 经验近似：67岁~21；每提前1岁+1.1；每延后1岁-1.1
+        base = 21.0
+        return max(15.0, base + (67 - retirement_age) * 1.1)
+
+    def _clamp_to_band(self, x: float, lower: float, upper: float) -> float:
+        """截断到区间"""
+        if x <= lower:
+            return 0.0
+        return max(0.0, min(x, upper) - lower)
+
+    def _calculate_national_pension(self, 
+                                  salary_profile: SalaryProfile, 
                                   work_years: int,
                                   economic_factors: EconomicFactors) -> Dict:
-        """计算国家养老金 (Folketrygden)"""
-        # 计算收入上限 (7.1G)
-        income_cap = self.pension_parameters['g_basic_amount'] * self.pension_parameters['income_cap_multiplier']
-
-        # 计算年度工资
-        annual_salary = salary_profile.monthly_salary * 12
-        capped_salary = min(annual_salary, income_cap)
-
-        # 1. 社保缴费 (进入公共统筹，不是个人账户)
-        annual_employee_ss_contribution = annual_salary * self.pension_parameters['national_employee_rate']  # 8.2%
-        annual_employer_ss_contribution = annual_salary * self.pension_parameters['national_employer_rate']  # 14.1%
-        annual_total_ss_contribution = annual_employee_ss_contribution + annual_employer_ss_contribution
-
-        # 2. 养老金计提 (基于18.1%的积累率，进入名义账户)
-        # 考虑工资/G指数增值 (假设年增长2%)
-        wage_index_growth = 0.02
-        total_pension_accrual = 0
-
+        """计算国家养老金 (Folketrygden) - 按照修正版伪代码"""
+        # 参数设置
+        wage0 = salary_profile.monthly_salary * 12
+        wage_growth = salary_profile.annual_growth_rate
+        g_growth = 0.02  # G指数增长率
+        g0 = self.pension_parameters['g_basic_amount']
+        state_accrual = self.pension_parameters['accrual_rate']
+        state_cap_mult = self.pension_parameters['income_cap_multiplier']
+        
+        # 年度循环计算
+        state_notional = 0.0  # 国家养老金名义账户余额
+        soc_tax_emp_total = 0.0  # 雇员社保税总计
+        soc_tax_er_total = 0.0   # 雇主社保税总计
+        
+        wage = wage0
+        g = g0
+        
         for year in range(work_years):
-            # 每年工资按指数增长
-            year_salary = annual_salary * (1 + wage_index_growth) ** year
-            year_capped_salary = min(year_salary, income_cap)
-            year_accrual = year_capped_salary * self.pension_parameters['accrual_rate']
-            total_pension_accrual += year_accrual
-
-        # 3. 计算退休金 (基于累积额和分配系数)
-        # 62岁退休的分配系数约为26年 (预期寿命调整)
-        distribution_factor = 26  # 62岁退休，预期寿命约88岁
-        annual_pension = total_pension_accrual / distribution_factor
-
+            # 国家养老金：计提 + 名义账户指数化
+            state_cap = state_cap_mult * g
+            base_state = min(wage, state_cap)
+            accrual = state_accrual * base_state  # 当年名义计提
+            
+            # 年初名义余额先指数化，再入账
+            state_notional = state_notional * (1.0 + g_growth) + accrual
+            
+            # 社保税统计（仅统计，不参与个人账户）
+            soc_tax_emp = 0.082 * wage  # 雇员8.2%
+            soc_tax_er = 0.141 * wage   # 雇主14.1%
+            soc_tax_emp_total += soc_tax_emp
+            soc_tax_er_total += soc_tax_er
+            
+            # 下一年增长
+            wage = wage * (1.0 + wage_growth)
+            g = g * (1.0 + g_growth)
+        
+        # 计算退休金 (基于分配系数)
+        retirement_age = self.pension_parameters['retirement_age']
+        distribution_factor = self._get_distribution_factor(retirement_age)
+        annual_pension = state_notional / distribution_factor
+        
         # 应用最低和最高限制
         annual_pension = max(
             self.pension_parameters['minimum_pension'],
             min(annual_pension, self.pension_parameters['maximum_pension'])
         )
         monthly_pension = annual_pension / 12
-
+        
         return {
             'name': '国家养老金 (Folketrygden)',
-            'annual_employee_ss_contribution': annual_employee_ss_contribution,  # 社保缴费
-            'annual_employer_ss_contribution': annual_employer_ss_contribution,  # 社保缴费
-            'annual_total_ss_contribution': annual_total_ss_contribution,        # 社保缴费
-            'total_ss_contribution': annual_total_ss_contribution * work_years,  # 终身社保缴费
-            'annual_pension_accrual': annual_salary * self.pension_parameters['accrual_rate'],  # 年度养老金计提
-            'total_pension_accrual': total_pension_accrual,                      # 终身养老金计提
+            'annual_employee_ss_contribution': soc_tax_emp_total / work_years,  # 年度平均社保缴费
+            'annual_employer_ss_contribution': soc_tax_er_total / work_years,   # 年度平均社保缴费
+            'annual_total_ss_contribution': (soc_tax_emp_total + soc_tax_er_total) / work_years,
+            'total_ss_contribution': soc_tax_emp_total + soc_tax_er_total,      # 终身社保缴费
+            'annual_pension_accrual': wage0 * state_accrual,                    # 年度养老金计提
+            'total_pension_accrual': state_notional,                            # 终身养老金计提
             'monthly_pension': monthly_pension,
             'annual_pension': annual_pension,
-            'income_cap': income_cap,
-            'capped_salary': capped_salary,
-            'distribution_factor': distribution_factor
+            'income_cap': state_cap_mult * g0,
+            'capped_salary': min(wage0, state_cap_mult * g0),
+            'distribution_factor': distribution_factor,
+            'state_notional_balance': state_notional
         }
 
-    def _calculate_occupational_pension(self,
-                                      salary_profile: SalaryProfile,
+    def _calculate_occupational_pension(self, 
+                                      salary_profile: SalaryProfile, 
                                       work_years: int,
                                       economic_factors: EconomicFactors) -> Dict:
-        """计算职业养老金 (OTP)"""
-        annual_salary = salary_profile.monthly_salary * 12
-        g_amount = self.pension_parameters['g_basic_amount']
-
-        # 按G分段计算缴费基数
-        # 1G = 118,620 NOK, 7.1G = 842,202 NOK, 12G = 1,423,440 NOK
-        segment_1g_7_1g = min(annual_salary, 7.1 * g_amount) - g_amount  # 1G-7.1G区间
-        segment_7_1g_12g = max(0, min(annual_salary, 12 * g_amount) - 7.1 * g_amount)  # 7.1G-12G区间
-
-        # 分段缴费率 (示例计划)
-        # 1G-7.1G区间：雇主5%
-        # 7.1G-12G区间：雇主18.1%
-        # 员工缴费归入IPS，不在此计算
-        employer_rate_1_7_1g = 0.05
-        employer_rate_7_1g_12g = 0.181
-
-        # 计算年度缴费 (仅雇主缴费)
-        annual_employer_contribution = (segment_1g_7_1g * employer_rate_1_7_1g +
-                                      segment_7_1g_12g * employer_rate_7_1g_12g)
-        annual_total_contribution = annual_employer_contribution
-
-        # 计算终身缴费
-        total_contribution = annual_total_contribution * work_years
-
-        # 计算投资收益 (使用更保守的5%年化回报)
-        investment_return = 0.05
-        # 使用年金终值公式：FV = PMT × [((1+r)^n - 1) / r]
-        # 其中PMT是年度缴费，r是投资回报率，n是年数
-        if investment_return > 0:
-            total_balance = annual_total_contribution * (((1 + investment_return) ** work_years - 1) / investment_return)
-        else:
-            total_balance = annual_total_contribution * work_years
-
+        """计算职业养老金 (OTP) - 按照修正版伪代码"""
+        # 参数设置
+        wage0 = salary_profile.monthly_salary * 12
+        wage_growth = salary_profile.annual_growth_rate
+        g_growth = 0.02
+        g0 = self.pension_parameters['g_basic_amount']
+        r_otp = 0.05  # 职业养老金投资回报
+        otp_low_rate = 0.05   # 1G-7.1G区间雇主缴费率
+        otp_high_rate = 0.181 # 7.1G-12G区间雇主缴费率
+        state_cap_mult = 7.1
+        otp_high_mult = 12.0
+        
+        # 年度循环计算
+        otp_balance = 0.0
+        total_contribution = 0.0
+        
+        wage = wage0
+        g = g0
+        
+        for year in range(work_years):
+            # 职业养老金（OTP，雇主缴），按G分段
+            base_low = self._clamp_to_band(wage, 1.0 * g, state_cap_mult * g)         # 1G ~ 7.1G
+            base_high = self._clamp_to_band(wage, state_cap_mult * g, otp_high_mult * g) # 7.1G ~ 12G
+            otp_contrib = base_low * otp_low_rate + base_high * otp_high_rate  # 全由雇主缴
+            
+            otp_balance = otp_balance * (1.0 + r_otp) + otp_contrib
+            total_contribution += otp_contrib
+            
+            # 下一年增长
+            wage = wage * (1.0 + wage_growth)
+            g = g * (1.0 + g_growth)
+        
         # 计算月退休金 (4%提取规则)
-        monthly_pension = (total_balance * 0.04) / 12
-
+        draw_rate_otp = 0.04
+        annual_otp = otp_balance * draw_rate_otp
+        monthly_otp = annual_otp / 12.0
+        
         return {
             'name': '职业养老金 (OTP)',
-            'employer_rate_1_7_1g': employer_rate_1_7_1g,
-            'employer_rate_7_1g_12g': employer_rate_7_1g_12g,
-            'segment_1g_7_1g': segment_1g_7_1g,
-            'segment_7_1g_12g': segment_7_1g_12g,
-            'annual_employer_contribution': annual_employer_contribution,
-            'annual_total_contribution': annual_total_contribution,
+            'employer_rate_1_7_1g': otp_low_rate,
+            'employer_rate_7_1g_12g': otp_high_rate,
+            'segment_1g_7_1g': self._clamp_to_band(wage0, 1.0 * g0, state_cap_mult * g0),
+            'segment_7_1g_12g': self._clamp_to_band(wage0, state_cap_mult * g0, otp_high_mult * g0),
+            'annual_employer_contribution': total_contribution / work_years,
+            'annual_total_contribution': total_contribution / work_years,
             'total_contribution': total_contribution,
-            'total_balance': total_balance,
-            'monthly_pension': monthly_pension,
-            'annual_pension': monthly_pension * 12
+            'total_balance': otp_balance,
+            'monthly_pension': monthly_otp,
+            'annual_pension': annual_otp
         }
 
-    def _calculate_individual_pension(self,
-                                    salary_profile: SalaryProfile,
+    def _calculate_individual_pension(self, 
+                                    salary_profile: SalaryProfile, 
                                     work_years: int,
                                     economic_factors: EconomicFactors) -> Dict:
-        """计算个人养老金 (IPS)"""
-        # 员工自愿缴费3% (从OTP移到这里)，但受年缴费上限限制
-        annual_salary = salary_profile.monthly_salary * 12
-        employee_contribution_rate = 0.03  # 员工自愿缴费3%
-        annual_contribution = min(annual_salary * employee_contribution_rate, self.pension_parameters['ips_annual_limit'])
-        total_contribution = annual_contribution * work_years
-
-        # 如果有缴费，计算投资收益 (使用保守的4%年化回报)
-        if annual_contribution > 0:
-            investment_return = 0.04  # 更保守的回报率
-            # 使用年金终值公式
-            if investment_return > 0:
-                total_balance = annual_contribution * (((1 + investment_return) ** work_years - 1) / investment_return)
-            else:
-                total_balance = annual_contribution * work_years
-
-            # 计算月退休金 (4%提取规则)
-            monthly_pension = (total_balance * 0.04) / 12
-        else:
-            total_balance = 0
-            monthly_pension = 0
-
+        """计算个人养老金 (IPS) - 按照修正版伪代码"""
+        # 参数设置
+        wage0 = salary_profile.monthly_salary * 12
+        wage_growth = salary_profile.annual_growth_rate
+        r_ips = 0.04  # 个人养老金投资回报
+        ips_cap = self.pension_parameters['ips_annual_limit']
+        
+        # 年度循环计算
+        ips_balance = 0.0
+        total_contribution = 0.0
+        
+        wage = wage0
+        
+        for year in range(work_years):
+            # 个人养老金（IPS，自愿）
+            ips_contrib = min(0.03 * wage, ips_cap)  # 3%与15k上限取小值
+            ips_balance = ips_balance * (1.0 + r_ips) + ips_contrib
+            total_contribution += ips_contrib
+            
+            # 下一年增长
+            wage = wage * (1.0 + wage_growth)
+        
+        # 计算月退休金 (4%提取规则)
+        draw_rate_ips = 0.04
+        annual_ips = ips_balance * draw_rate_ips
+        monthly_ips = annual_ips / 12.0
+        
         return {
             'name': '个人养老金 (IPS)',
-            'employee_contribution_rate': employee_contribution_rate,
-            'annual_contribution': annual_contribution,
+            'employee_contribution_rate': 0.03,
+            'annual_contribution': total_contribution / work_years,
             'total_contribution': total_contribution,
-            'total_balance': total_balance,
-            'monthly_pension': monthly_pension,
-            'annual_pension': monthly_pension * 12,
-            'annual_limit': self.pension_parameters['ips_annual_limit']
+            'total_balance': ips_balance,
+            'monthly_pension': monthly_ips,
+            'annual_pension': annual_ips,
+            'annual_limit': ips_cap
         }
