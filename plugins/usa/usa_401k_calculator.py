@@ -302,33 +302,21 @@ class USA401kCalculator:
                             balance: float,
                             retirement_age: int) -> USA401kWithdrawal:
         """计算提取分析"""
-        # 年金化提取（20年）
-        monthly_rate = 0.03 / 12  # 3%年利率
-        months = 240  # 20年
-
-        if monthly_rate > 0:
-            annuity_factor = monthly_rate / (1 - (1 + monthly_rate) ** (-months))
-            monthly_withdrawal = balance * annuity_factor
-        else:
-            monthly_withdrawal = balance / months
-
-        annual_withdrawal = monthly_withdrawal * 12
-
-        # 4%规则提取
+        # 使用4%规则提取（更保守和现实的方法）
         four_percent_annual = balance * 0.04
         four_percent_monthly = four_percent_annual / 12
 
         # 税务影响（假设25%税率）
         tax_rate = 0.25
-        taxable_amount = annual_withdrawal
+        taxable_amount = four_percent_annual
         tax_amount = taxable_amount * tax_rate
         after_tax_amount = taxable_amount - tax_amount
 
         return USA401kWithdrawal(
-            monthly_withdrawal=monthly_withdrawal,
-            annual_withdrawal=annual_withdrawal,
-            total_withdrawal_period=20,
-            withdrawal_strategy="annuity",
+            monthly_withdrawal=four_percent_monthly,
+            annual_withdrawal=four_percent_annual,
+            total_withdrawal_period=25,  # 4%规则通常假设25年
+            withdrawal_strategy="4_percent_rule",
             taxable_amount=taxable_amount,
             tax_rate=tax_rate,
             after_tax_amount=after_tax_amount
