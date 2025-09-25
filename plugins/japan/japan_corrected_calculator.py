@@ -96,17 +96,17 @@ def calc_pension_corrected(monthly_salary: float, work_years: int) -> Dict[str, 
     """计算养老金（修正版）"""
     # 计算加入月数
     months_enrolled = work_years * 12
-    
+
     # 国民年金：固定66,250日元/月（满40年），按工作年限比例
     full_kokumin_month = 66_250
     kokumin_monthly = full_kokumin_month * min(1.0, months_enrolled / 480.0)
-    
+
     # 厚生年金：平均标准报酬月额 × (5.481/1000) × 加入月数
     avg_std_wage = min(monthly_salary, 650_000)  # 厚生年金上限
     kosei_monthly = (avg_std_wage * 5.481 / 1000 * months_enrolled) / 12
-    
+
     total_monthly = kokumin_monthly + kosei_monthly
-    
+
     return {
         'kokumin_monthly': kokumin_monthly,
         'kosei_monthly': kosei_monthly,
