@@ -1,40 +1,18 @@
 # 退休金对比系统
 
-一个基于Python的插件化退休金计算和对比系统，支持多个国家的退休金计算，考虑通胀、工资增长、投资回报等复杂因素。**新增综合分析功能，包含养老金、社保、个税和实际到手金额的完整分析。**
-
-## 🆕 最新更新 - 外部库集成
-
-**v3.0 重大更新**: 集成多个开源税务和养老金计算库，提供更专业和准确的计算结果！
-
-### 🔬 集成的专业库
-- **🇺🇸 美国**: `taxcalc` (PSL官方) + `Open Social Security`
-- **🇬🇧 英国**: `CoolTaxTool` + `UK Tax Calculator` + `taxman`
-- **🌐 通用**: `numpy-financial` + `OpenFisca` + `scipy`
-- **📊 智能回退**: 外部库不可用时自动使用内置实现
-
-### 🚀 立即体验
-```bash
-# 一键安装所有外部库
-python scripts/install_external_libs.py
-
-# 测试集成状态
-python scripts/test_external_integrations.py
-```
-
-📖 **详细集成指南**: [EXTERNAL_LIBRARIES_GUIDE.md](EXTERNAL_LIBRARIES_GUIDE.md)
+一个基于Python的插件化退休金计算和对比系统，支持多个国家的退休金计算，考虑通胀、工资增长、投资回报等复杂因素。**提供详细的综合分析功能，包含养老金、社保、个税和实际到手金额的完整分析。**
 
 ## 🚀 功能特点
 
 - **插件化架构**：支持不同国家的退休金计算器
-- **🆕 外部库集成**：集成专业开源库，计算更精确
+- **智能货币转换**：支持多种货币输入和实时汇率转换
 - **综合分析**：养老金、社保、个税、实际到手金额的完整分析
 - **复杂因素考虑**：通胀、工资增长、投资回报率等
 - **多维度对比**：月退休金、总缴费、ROI、回本年龄等
-- **敏感性分析**：分析不同参数对结果的影响
 - **详细报告**：生成完整的退休金分析报告
 - **个税计算**：各国个人所得税计算，包含社保扣除
 - **实际到手**：扣除社保和个税后的实际到手金额
-- **🔧 智能回退**：外部库不可用时自动使用内置实现
+- **实时汇率**：支持多种汇率API，自动缓存和更新
 
 ## 🏗️ 系统架构
 
@@ -43,28 +21,31 @@ pension_comparison/
 ├── core/                    # 核心模块
 │   ├── models.py           # 数据模型
 │   ├── base_calculator.py  # 抽象基类
-│   └── pension_engine.py   # 计算引擎
+│   ├── pension_engine.py   # 计算引擎
+│   └── plugin_manager.py   # 插件管理器
 ├── plugins/                 # 国家插件
-│   ├── china/              # 中国退休金计算器 + 综合分析器
-│   ├── usa/                # 美国退休金计算器 + 综合分析器
-│   ├── singapore/          # 新加坡退休金计算器 + 综合分析器
-│   ├── canada/             # 加拿大退休金计算器 + 综合分析器
-│   ├── australia/          # 澳大利亚退休金计算器 + 综合分析器
-│   ├── hongkong/           # 香港退休金计算器 + 综合分析器
-│   ├── taiwan/             # 台湾退休金计算器 + 综合分析器
-│   ├── japan/              # 日本退休金计算器 + 综合分析器
-│   ├── uk/                 # 英国退休金计算器 + 综合分析器
-│   └── norway/             # 挪威退休金计算器 + 综合分析器
+│   ├── china/              # 中国退休金计算器
+│   ├── usa/                # 美国退休金计算器
+│   ├── singapore/          # 新加坡退休金计算器
+│   ├── canada/             # 加拿大退休金计算器
+│   ├── australia/          # 澳大利亚退休金计算器
+│   ├── hongkong/           # 香港退休金计算器
+│   ├── taiwan/             # 台湾退休金计算器
+│   ├── japan/              # 日本退休金计算器
+│   ├── uk/                 # 英国退休金计算器
+│   └── norway/             # 挪威退休金计算器
 ├── utils/                   # 工具模块
 │   ├── inflation.py        # 通胀计算
 │   ├── salary_growth.py    # 工资增长模型
 │   ├── investment.py       # 投资回报计算
 │   ├── tax_manager.py      # 税收管理
 │   ├── currency_converter.py # 货币转换
-│   └── external_library_adapters.py # 🆕 外部库适配器
-├── scripts/                 # 🆕 脚本工具
-│   ├── install_external_libs.py # 外部库安装脚本
-│   └── test_external_integrations.py # 集成测试脚本
+│   ├── smart_currency_converter.py # 智能货币转换
+│   ├── realtime_currency_converter.py # 实时汇率转换
+│   └── annual_analyzer.py  # 年度分析器
+├── analyzers/               # 分析器模块
+│   ├── analyzer_manager.py # 分析器管理器
+│   └── *_analyzer.py       # 各国分析器
 └── main.py                  # 主程序入口
 ```
 
@@ -75,14 +56,9 @@ pension_comparison/
 pip install -r requirements.txt
 ```
 
-### 🆕 增强安装 (推荐)
+### 增强安装 (可选)
 ```bash
-# 安装所有外部专业库
-python scripts/install_external_libs.py
-
-# 或者分步安装
-pip install numpy-financial taxcalc  # 核心金融库
-pip install git+https://github.com/wozniakpawel/cooltaxtool.git  # 英国税收
+pip install -r requirements_enhanced.txt
 ```
 
 ## 🚀 快速开始
@@ -91,47 +67,68 @@ pip install git+https://github.com/wozniakpawel/cooltaxtool.git  # 英国税收
 
 ```bash
 # 分析单个国家
-python3 main.py --cn    # 中国
-python3 main.py --sg    # 新加坡
-python3 main.py --us    # 美国
-python3 main.py --ca    # 加拿大
-python3 main.py --au    # 澳大利亚
-python3 main.py --hk    # 香港
-python3 main.py --tw    # 台湾
-python3 main.py --jp    # 日本
-python3 main.py --uk    # 英国
-python3 main.py --no    # 挪威
+python3 main.py cny30000 --CN        # 中国，3万人民币
+python3 main.py USD5000 --US         # 美国，5千美元
+python3 main.py sgd8000 --SG         # 新加坡，8千新币
+python3 main.py ¥25000 --CN,US,SG    # 对比多个国家
 
-# 多国对比
-python3 main.py cn,us,au    # 对比中国、美国、澳大利亚
-python3 main.py sg,hk,tw    # 对比新加坡、香港、台湾
-python3 main.py no,se,dk    # 对比挪威、瑞典、丹麦
+# 智能货币输入支持
+python3 main.py cny10000 --CN        # 货币代码+金额
+python3 main.py 10000CNY --CN        # 金额+货币代码
+python3 main.py ¥10000 --CN          # 货币符号+金额
+python3 main.py 10000 --CN           # 纯数字(默认为人民币)
+
+# 年度详细分析
+python3 main.py --annual cny30000 --CN    # 中国年度详细分析
+python3 main.py --annual USD5000 --US     # 美国年度详细分析
+
+# 系统管理命令
+python3 main.py --list-plugins       # 列出所有插件
+python3 main.py --test-plugins        # 测试插件功能
+python3 main.py --supported-currencies # 显示支持的货币
 ```
 
 ### 2. 程序化使用
 
 ```python
-from core.pension_engine import PensionEngine
-from plugins.china.china_comprehensive_analyzer import ChinaComprehensiveAnalyzer
+from core.plugin_manager import plugin_manager
 from core.models import Person, SalaryProfile, EconomicFactors, Gender, EmploymentType
+from utils.smart_currency_converter import SmartCurrencyConverter, CurrencyAmount
 from datetime import date
 
 # 创建计算引擎
-engine = PensionEngine()
+converter = SmartCurrencyConverter()
+currency_amount = converter.parse_amount("cny30000")
 
-# 使用综合分析器
-analyzer = ChinaComprehensiveAnalyzer(engine)
-analyzer.analyze_comprehensive(30000)  # 月薪3万人民币
+# 获取中国插件
+china_plugin = plugin_manager.get_plugin("CN")
+
+# 创建测试数据
+person = china_plugin.create_person(start_age=30)
+salary_profile = SalaryProfile(
+    monthly_salary=currency_amount.amount / 12,
+    annual_growth_rate=0.0,
+    contribution_start_age=30
+)
+economic_factors = EconomicFactors(
+    inflation_rate=0.02,
+    investment_return_rate=0.05,
+    social_security_return_rate=0.03
+)
+
+# 计算退休金
+pension_result = china_plugin.calculate_pension(person, salary_profile, economic_factors)
+print(f"月退休金: {china_plugin.format_currency(pension_result.monthly_pension)}")
 ```
 
 ## 🌍 支持的国家和地区
 
 ### 📊 完整对比表格
 
-| 国家/地区 | 代码 | 养老金系统 | 社保系统 | 个税特点 | 退休年龄 | 综合分析 |
-|-----------|------|------------|----------|----------|----------|----------|
+| 国家/地区 | 代码 | 养老金系统 | 社保系统 | 个税特点 | 退休年龄 | 状态 |
+|-----------|------|------------|----------|----------|----------|------|
 | **中国** | CN | 基础养老金+个人账户 | 社保（养老+医疗+失业） | 专项附加扣除 | 男60/女55 | ✅ 完整 |
-| **新加坡** | SG | CPF中央公积金 | CPF（OA+SA+MA） | 累进税率，CPF扣除 | 62 | ✅ 完整 |
+| **新加坡** | SG | CPF中央公积金 | CPF（OA+SA+MA） | 累进税率，CPF扣除 | 65 | ✅ 完整 |
 | **加拿大** | CA | CPP+OAS | CPP+EI | 基本免税额，CPP/EI扣除 | 65 | ✅ 完整 |
 | **澳大利亚** | AU | Superannuation | Superannuation | 基本免税额，Super雇主承担 | 67 | ✅ 完整 |
 | **美国** | US | Social Security | SS+Medicare | 标准扣除额，SS/Medicare扣除 | 67 | ✅ 完整 |
@@ -139,18 +136,7 @@ analyzer.analyze_comprehensive(30000)  # 月薪3万人民币
 | **台湾** | TW | 劳保+国民年金 | 劳保+健保 | 基本免税额，劳保/健保扣除 | 65 | ✅ 完整 |
 | **日本** | JP | 厚生年金+国民年金 | 厚生年金+健康保险 | 基本控除，厚生年金/健保扣除 | 65 | ✅ 完整 |
 | **英国** | UK | 国家养老金+职场养老金 | National Insurance+养老金 | 个人免税额，养老金扣除 | 68 | ✅ 完整 |
-| **挪威** | NO | Folketrygden国民保险 | Folketrygden | 平税制+基本免税额 | 67 | ✅ 完整 |
-
-### 💰 详细财务对比分析
-
-**📋 完整对比结果请查看 [COMPARISON_RESULTS.md](COMPARISON_RESULTS.md)**
-
-该文件包含：
-- 示例场景的详细对比（仅供参考）
-- 社保缴费率对比
-- 个税税率对比
-- 全生命周期财务总结
-- 关键发现和投资回报率分析
+| **挪威** | NO | Folketrygden国民保险 | Folketrygden | 平税制+基本免税额 | 62 | ✅ 完整 |
 
 ## 🔍 综合分析功能
 
@@ -187,6 +173,24 @@ analyzer.analyze_comprehensive(30000)  # 月薪3万人民币
 - **企业国际化**：了解不同国家的用工成本
 - **学术研究**：分析各国养老金和税收政策差异
 
+## 💱 智能货币转换
+
+### 支持的货币
+
+系统支持18种主要货币，包括：
+
+- **亚洲货币**：CNY(人民币)、SGD(新加坡元)、HKD(港币)、TWD(新台币)、JPY(日元)、KRW(韩元)
+- **美洲货币**：USD(美元)、CAD(加拿大元)、AUD(澳大利亚元)、BRL(巴西雷亚尔)
+- **欧洲货币**：EUR(欧元)、GBP(英镑)、NOK(挪威克朗)、SEK(瑞典克朗)、DKK(丹麦克朗)、CHF(瑞士法郎)
+- **其他货币**：INR(印度卢比)、RUB(俄罗斯卢布)
+
+### 实时汇率
+
+- 支持多个汇率API（ExchangeRate-API、ExchangeRatesAPI等）
+- 自动缓存汇率数据，避免频繁API调用
+- 智能回退机制，API不可用时使用缓存数据
+- 支持货币符号、代码、别名等多种输入方式
+
 ## 🧮 核心概念
 
 ### 1. 通胀计算
@@ -203,54 +207,43 @@ analyzer.analyze_comprehensive(30000)  # 月薪3万人民币
 ### 3. 投资回报计算
 - 未来价值和现值
 - 定期缴费计算
-- 蒙特卡洛模拟
-- 序列回报风险
+- 内部收益率(IRR)计算
+- 回本年龄分析
 
 ### 4. 税收计算
-- **新增** 各国个税税率表
-- **新增** 社保缴费计算
-- **新增** 税前扣除项
-- **新增** 有效税率计算
+- 各国个税税率表
+- 社保缴费计算
+- 税前扣除项
+- 有效税率计算
 
 ## 🔧 扩展新国家
 
 要添加新的国家支持，需要：
 
 1. 在 `plugins/` 目录下创建新的国家目录
-2. 创建 `*_comprehensive_analyzer.py` 文件
-3. 实现 `*_TaxCalculator` 类，包含：
-   - 个税税率表
-   - 社保缴费率
-   - 个税计算方法
-   - 社保缴费计算方法
-4. 实现 `*_ComprehensiveAnalyzer` 类，包含：
-   - `_analyze_pension()` 方法
-   - `_analyze_income()` 方法
-   - `_analyze_lifetime_summary()` 方法
+2. 创建 `plugin.py` 文件，继承 `BaseCountryPlugin`
+3. 实现必要的计算方法：
+   - `calculate_pension()` - 退休金计算
+   - `calculate_tax()` - 个税计算
+   - `calculate_social_security()` - 社保计算
+   - `get_retirement_age()` - 退休年龄
+4. 创建配置文件 `config.py`
+5. 可选：创建详细分析器 `*_analyzer.py`
 
 示例：
 
 ```python
-class FranceTaxCalculator:
-    def __init__(self):
-        self.tax_brackets = [...]  # 法国个税税率表
-        self.social_rates = {...}  # 法国社保费率
+class FrancePlugin(BaseCountryPlugin):
+    COUNTRY_CODE = "FR"
+    COUNTRY_NAME = "法国"
+    CURRENCY = "EUR"
 
-    def calculate_income_tax(self, annual_income, deductions):
+    def calculate_pension(self, person, salary_profile, economic_factors):
+        # 实现法国退休金计算逻辑
+        pass
+
+    def calculate_tax(self, annual_income):
         # 实现法国个税计算逻辑
-        pass
-
-    def calculate_social_contribution(self, monthly_salary):
-        # 实现法国社保缴费计算逻辑
-        pass
-
-class FranceComprehensiveAnalyzer:
-    def __init__(self, engine):
-        self.engine = engine
-        self.tax_calculator = FranceTaxCalculator()
-
-    def analyze_comprehensive(self, monthly_salary_cny):
-        # 实现综合分析逻辑
         pass
 ```
 
@@ -263,12 +256,17 @@ python3 main.py
 
 ### 分析中国情况
 ```bash
-python3 main.py --cn
+python3 main.py cny30000 --CN
 ```
 
 ### 对比多个国家
 ```bash
-python3 main.py cn,us,au
+python3 main.py cny30000 cn,us,au
+```
+
+### 年度详细分析
+```bash
+python3 main.py --annual cny30000 --CN
 ```
 
 ## ⚠️ 注意事项
@@ -277,7 +275,8 @@ python3 main.py cn,us,au
 2. **参数设置**：通胀率、投资回报率等参数需要根据实际情况调整
 3. **货币单位**：不同国家使用不同货币，系统自动转换显示
 4. **政策变化**：退休金和税收政策可能发生变化，需要及时更新计算逻辑
-5. **汇率波动**：货币转换使用固定汇率，实际汇率会有波动
+5. **汇率波动**：货币转换使用实时汇率，但汇率会有波动
+6. **API限制**：汇率API可能有调用限制，建议合理使用
 
 ## 🤝 贡献
 
@@ -289,6 +288,14 @@ MIT License
 
 ## 🔄 更新日志
 
+### v3.0.0 (2024)
+- **新增** 智能货币转换功能
+- **新增** 实时汇率API集成
+- **新增** 年度详细分析功能
+- **优化** 插件管理系统
+- **优化** 输出格式和用户体验
+- **修复** 各种计算错误和显示问题
+
 ### v2.0.0 (2024)
 - **新增** 综合分析功能
 - **新增** 各国个税计算
@@ -296,8 +303,6 @@ MIT License
 - **新增** 实际到手金额分析
 - **新增** 全生命周期总结
 - **新增** 英国、日本、台湾、香港综合分析器
-- **优化** 输出格式统一化
-- **修复** 各种计算错误和显示问题
 
 ### v1.0.0 (2023)
 - 基础养老金计算功能
