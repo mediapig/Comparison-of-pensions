@@ -73,25 +73,25 @@ class JapanPlugin(BaseCountryPlugin):
                                 **kwargs) -> Dict[str, float]:
         """计算厚生年金缴费"""
         annual_salary = monthly_salary * 12
-        
+
         # 使用修正计算器的社保计算
         result = self.corrected_calculator.calculate_tax_detailed(annual_salary)
         social_security = result.get('social_security', {})
-        
+
         # 计算年度和月度缴费
         kosei_info = social_security.get('kosei', {})
         kenko_info = social_security.get('kenko', {})
         koyo_info = social_security.get('koyo', {})
-        
+
         # 员工和雇主分别计算
-        monthly_employee = (kosei_info.get('employee', 0) + 
-                           kenko_info.get('employee', 0) + 
+        monthly_employee = (kosei_info.get('employee', 0) +
+                           kenko_info.get('employee', 0) +
                            koyo_info.get('employee', 0))
-        
-        monthly_employer = (kosei_info.get('employer', 0) + 
-                           kenko_info.get('employer', 0) + 
+
+        monthly_employer = (kosei_info.get('employer', 0) +
+                           kenko_info.get('employer', 0) +
                            koyo_info.get('employer', 0))
-        
+
         total_employee = monthly_employee * 12 * years
         total_employer = monthly_employer * 12 * years
 
@@ -118,9 +118,9 @@ class JapanPlugin(BaseCountryPlugin):
             "employer": 0.09175,    # 雇主缴费9.175%
             "total": 0.1835         # 总缴费比例18.35%
         }
-    
+
     def print_detailed_analysis(self, person: Person, salary_profile: SalaryProfile,
-                              economic_factors: EconomicFactors, pension_result, 
+                              economic_factors: EconomicFactors, pension_result,
                               currency_amount):
         """打印详细分析结果"""
         # 调用详细分析器

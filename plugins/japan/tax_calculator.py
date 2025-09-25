@@ -33,7 +33,7 @@ class JapanTaxCalculator:
 
         # 1. 工资所得控除（給与所得控除）
         salary_deduction = self._calculate_salary_deduction(annual_income)
-        
+
         # 2. 基础控除（基礎控除）
         basic_deduction = self._calculate_basic_deduction(annual_income)
 
