@@ -96,7 +96,6 @@ class NorwayDetailedAnalyzer:
             },
 
             "职业养老金缴费": {
-                "员工缴费率": f"{occupational_pension.get('employee_rate', 0)*100:.1f}% (自愿)",
                 "雇主缴费率": {
                     "1G-7.1G区间": f"{occupational_pension.get('employer_rate_1_7_1g', 0)*100:.1f}%",
                     "7.1G-12G区间": f"{occupational_pension.get('employer_rate_7_1g_12g', 0)*100:.1f}%"
@@ -106,7 +105,6 @@ class NorwayDetailedAnalyzer:
                     "7.1G-12G区间": self._format_decimals(occupational_pension.get('segment_7_1g_12g', 0))
                 },
                 "年度缴费": {
-                    "员工缴费": self._format_decimals(occupational_pension.get('annual_employee_contribution', 0)),
                     "雇主缴费": self._format_decimals(occupational_pension.get('annual_employer_contribution', 0)),
                     "总缴费": self._format_decimals(occupational_pension.get('annual_total_contribution', 0))
                 },
@@ -115,6 +113,7 @@ class NorwayDetailedAnalyzer:
             },
 
             "个人养老金缴费": {
+                "员工缴费率": f"{individual_pension.get('employee_contribution_rate', 0)*100:.1f}% (自愿)",
                 "年度缴费": self._format_decimals(individual_pension.get('annual_contribution', 0)),
                 "终身缴费": self._format_decimals(individual_pension.get('total_contribution', 0)),
                 "最终余额": self._format_decimals(individual_pension.get('total_balance', 0)),
@@ -213,13 +212,14 @@ class NorwayDetailedAnalyzer:
                     "覆盖范围": "所有受雇于正规雇主的劳动者",
                     "最低缴费": "雇主必须至少按工资的2%缴纳",
                     "分段缴费": "1G-7.1G区间5%，7.1G-12G区间18.1%",
-                    "员工缴费": "自愿缴费，通常3%",
+                    "员工缴费": "员工缴费归入IPS，不在此计算",
                     "常见方案": "缴费型(Defined Contribution)计划",
                     "特点": "补充国家养老金，按G分段计算"
                 },
                 "个人养老金": {
                     "制度名称": "Individual Pension Savings (IPS)",
                     "覆盖范围": "自愿的个人储蓄计划",
+                    "员工缴费": "员工自愿缴费3%",
                     "年缴费上限": "NOK 15,000",
                     "税收优惠": "可抵税",
                     "特点": "个人可额外储蓄，享有税收优惠"
@@ -238,14 +238,6 @@ class NorwayDetailedAnalyzer:
                 "年退休金": self._format_decimals(monthly_pension_cny * 12),
                 "总缴费": self._format_decimals(total_contribution_cny),
                 "说明": "基于当前汇率转换，仅供参考"
-            },
-
-            "风险提示": {
-                "政策风险": "养老金政策可能随政府政策调整而变化",
-                "投资风险": "职业养老金和个人养老金存在投资风险",
-                "长寿风险": "预期寿命延长可能影响养老金可持续性",
-                "通胀风险": "通胀可能影响养老金实际购买力",
-                "汇率风险": "人民币对比基于当前汇率，存在波动风险"
             }
         }
 
