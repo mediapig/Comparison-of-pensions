@@ -274,7 +274,7 @@ class AnnualAnalyzer:
         # 创建薪资档案
         salary_profile = SalaryProfile(
             monthly_salary=monthly_salary,
-            annual_growth_rate=0.03,
+            annual_growth_rate=0.0,
             contribution_start_age=start_age  # 使用start_age参数而不是person.age
         )
 

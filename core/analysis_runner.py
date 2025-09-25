@@ -110,7 +110,7 @@ def analyze_by_country(engine: PensionEngine, scenario_name: str, monthly_salary
         except Exception as e:
             print(f"计算 {calculator.country_name} 退休金时出错: {e}")
 
-def analyze_countries_comparison(engine: PensionEngine, country_codes: list):
+def analyze_countries_comparison(engine: PensionEngine, country_codes: list, monthly_salary: float = 10000):
     """对比指定国家的退休金"""
     # 验证国家代码
     valid_codes = []
@@ -132,66 +132,60 @@ def analyze_countries_comparison(engine: PensionEngine, country_codes: list):
     print(f"对比国家: {', '.join(country_names)}")
     print(f"{'='*80}")
 
-    scenarios = [
-        {"name": "高收入场景", "monthly_salary": 50000},
-        {"name": "低收入场景", "monthly_salary": 5000}
-    ]
-
     person = create_standard_person()
     
-    for scenario in scenarios:
-        print(f"\n📊 {scenario['name']} (月薪: {converter.format_amount(scenario['monthly_salary'], 'CNY')})")
-        print("-" * 50)
-        
-        salary_profile = create_standard_salary_profile(scenario['monthly_salary'])
-        
-        results = []
-        for code in valid_codes:
-            if code in engine.calculators:
-                calculator = engine.calculators[code]
-                local_currency = get_country_currency(code)
-                
-                economic_factors = EconomicFactors(
-                    inflation_rate=0.03,
-                    investment_return_rate=0.07,
-                    social_security_return_rate=0.05,
-                    base_currency="CNY",
-                    display_currency=local_currency
-                )
-                
-                try:
-                    result = calculator.calculate_pension(person, salary_profile, economic_factors)
-                    results.append({
-                        'country_name': calculator.country_name,
-                        'country_code': code,
-                        'monthly_pension': result.monthly_pension,
-                        'total_contribution': result.total_contribution,
-                        'roi': result.roi,
-                        'break_even_age': result.break_even_age,
-                        'currency': local_currency,
-                        'details': result.details
-                    })
-                except Exception as e:
-                    print(f"计算 {calculator.country_name} 时出错: {e}")
-        
-        # 按月退休金排序
-        results.sort(key=lambda x: x['monthly_pension'], reverse=True)
-        
-        for i, result in enumerate(results, 1):
-            print(f"\n🏛️  {result['country_name']} ({result['country_code']})")
-            print(f"   排名: {i}")
-            print(f"   月退休金: {converter.format_amount(result['monthly_pension'], result['currency'])}")
-            print(f"   总缴费: {converter.format_amount(result['total_contribution'], result['currency'])}")
-            print(f"   投资回报率: {result['roi']:.1%}")
-            print(f"   回本年龄: {result['break_even_age']}岁" if result['break_even_age'] else "回本年龄: 无法计算")
+    print(f"\n📊 月薪: {converter.format_amount(monthly_salary, 'CNY')}")
+    print("-" * 50)
+    
+    salary_profile = create_standard_salary_profile(monthly_salary)
+    
+    results = []
+    for code in valid_codes:
+        if code in engine.calculators:
+            calculator = engine.calculators[code]
+            local_currency = get_country_currency(code)
             
-            # 显示特定国家的详细信息
-            details = result['details']
-            if result['country_code'] == 'US' and 'social_security_pension' in details:
-                print(f"   Social Security: {converter.format_amount(details['social_security_pension'], 'USD')}/月")
-                if 'k401_monthly_pension' in details:
-                    print(f"   401K: {converter.format_amount(details['k401_monthly_pension'], 'USD')}/月")
-            elif result['country_code'] == 'CN' and 'basic_pension' in details:
-                print(f"   基础养老金: {converter.format_amount(details['basic_pension'], 'CNY')}/月")
-                if 'account_pension' in details:
-                    print(f"   个人账户养老金: {converter.format_amount(details['account_pension'], 'CNY')}/月")
+            economic_factors = EconomicFactors(
+                inflation_rate=0.03,
+                investment_return_rate=0.07,
+                social_security_return_rate=0.05,
+                base_currency="CNY",
+                display_currency=local_currency
+            )
+            
+            try:
+                result = calculator.calculate_pension(person, salary_profile, economic_factors)
+                results.append({
+                    'country_name': calculator.country_name,
+                    'country_code': code,
+                    'monthly_pension': result.monthly_pension,
+                    'total_contribution': result.total_contribution,
+                    'roi': result.roi,
+                    'break_even_age': result.break_even_age,
+                    'currency': local_currency,
+                    'details': result.details
+                })
+            except Exception as e:
+                print(f"计算 {calculator.country_name} 时出错: {e}")
+    
+    # 按月退休金排序
+    results.sort(key=lambda x: x['monthly_pension'], reverse=True)
+    
+    for i, result in enumerate(results, 1):
+        print(f"\n🏛️  {result['country_name']} ({result['country_code']})")
+        print(f"   排名: {i}")
+        print(f"   月退休金: {converter.format_amount(result['monthly_pension'], result['currency'])}")
+        print(f"   总缴费: {converter.format_amount(result['total_contribution'], result['currency'])}")
+        print(f"   投资回报率: {result['roi']:.1%}")
+        print(f"   回本年龄: {result['break_even_age']}岁" if result['break_even_age'] else "回本年龄: 无法计算")
+        
+        # 显示特定国家的详细信息
+        details = result['details']
+        if result['country_code'] == 'US' and 'social_security_pension' in details:
+            print(f"   Social Security: {converter.format_amount(details['social_security_pension'], 'USD')}/月")
+            if 'k401_monthly_pension' in details:
+                print(f"   401K: {converter.format_amount(details['k401_monthly_pension'], 'USD')}/月")
+        elif result['country_code'] == 'CN' and 'basic_pension' in details:
+            print(f"   基础养老金: {converter.format_amount(details['basic_pension'], 'CNY')}/月")
+            if 'account_pension' in details:
+                print(f"   个人账户养老金: {converter.format_amount(details['account_pension'], 'CNY')}/月")

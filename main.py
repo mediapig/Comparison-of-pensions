@@ -212,7 +212,7 @@ class SmartPensionComparisonApp:
         
         salary_profile = SalaryProfile(
             monthly_salary=local_amount.amount / 12,  # 年薪转月薪
-            annual_growth_rate=0.03,
+            annual_growth_rate=0.0,
             contribution_start_age=30  # 固定从30岁开始工作
         )
 
@@ -272,7 +272,7 @@ class SmartPensionComparisonApp:
 
                 salary_profile = SalaryProfile(
                     monthly_salary=local_amount.amount / 12,  # 年薪转月薪
-                    annual_growth_rate=0.03,
+                    annual_growth_rate=0.0,
                     contribution_start_age=22
                 )
 

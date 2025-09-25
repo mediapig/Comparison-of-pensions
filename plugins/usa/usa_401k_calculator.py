@@ -121,7 +121,7 @@ class USA401kCalculator:
                               start_age: int,
                               retirement_age: int,
                               initial_annual_salary: float,
-                              salary_growth_rate: float = 0.03,
+                              salary_growth_rate: float = 0.0,
                               deferral_rate: float = 0.10,
                               investment_return_rate: float = None,
                               employer_match_preset: str = 'tiered_3_2') -> USA401kResult:
@@ -422,7 +422,7 @@ if __name__ == "__main__":
         start_age=30,
         retirement_age=65,
         initial_annual_salary=80000,
-        salary_growth_rate=0.03,
+        salary_growth_rate=0.0,
         deferral_rate=0.10,
         investment_return_rate=0.07
     )
