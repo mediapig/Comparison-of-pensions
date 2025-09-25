@@ -141,12 +141,27 @@ class USADetailedAnalyzer:
                     "雇员缴费": total_k401_contribution * 0.6,  # 估算员工缴费占比
                     "雇主缴费": total_k401_contribution * 0.4,  # 估算雇主匹配占比
                     "总缴费": total_k401_contribution
+                },
+                "Medicare缴费总计": {
+                    "雇员缴费": annual_salary_usd * 0.0145 * work_years,
+                    "雇主缴费": annual_salary_usd * 0.0145 * work_years,
+                    "总缴费": annual_salary_usd * 0.029 * work_years
                 }
             },
             "退休期分析": {
                 "年龄范围": f"{retirement_age}-90岁",
                 "退休年限": retirement_years,
-                "退休金收入": {
+                "社安金收入": {
+                    "月领取金额": pension_result.details.get('social_security_pension', 0) or 0,
+                    "年领取金额": (pension_result.details.get('social_security_pension', 0) or 0) * 12,
+                    "退休期总领取": total_ss_benefit
+                },
+                "401k提取收入": {
+                    "月提取金额": k401_monthly_pension,
+                    "年提取金额": k401_monthly_pension * 12,
+                    "退休期总提取": total_k401_benefit
+                },
+                "总退休金收入": {
                     "月领取金额": pension_result.monthly_pension,
                     "年领取金额": pension_result.monthly_pension * 12,
                     "退休期总领取": total_benefit
@@ -219,7 +234,7 @@ class USADetailedAnalyzer:
         # 简化计算：假设薪资不变，工资基数上限也不变
         ss_contribution_base = min(annual_salary, 160200)
         return ss_contribution_base * 0.062 * work_years
-    
+
     def _calculate_total_ss_employer(self, annual_salary: float, work_years: int) -> float:
         """计算社保雇主缴费总计（考虑工资基数上限）"""
         # 简化计算：假设薪资不变，工资基数上限也不变
