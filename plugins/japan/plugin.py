@@ -14,6 +14,7 @@ from .tax_calculator import JapanTaxCalculator
 from .pension_calculator import JapanPensionCalculator
 from .japan_detailed_analyzer import JapanDetailedAnalyzer
 from .japan_enhanced_calculator import JapanEnhancedCalculator
+from .japan_corrected_calculator import JapanCorrectedCalculator
 
 class JapanPlugin(BaseCountryPlugin):
     """日本插件"""
@@ -27,6 +28,7 @@ class JapanPlugin(BaseCountryPlugin):
         self.tax_calculator = JapanTaxCalculator()
         self.pension_calculator = JapanPensionCalculator()
         self.enhanced_calculator = JapanEnhancedCalculator()
+        self.corrected_calculator = JapanCorrectedCalculator()
         self.detailed_analyzer = JapanDetailedAnalyzer(None)  # 将在需要时设置engine
 
     def _load_config(self) -> PluginConfig:
@@ -45,16 +47,16 @@ class JapanPlugin(BaseCountryPlugin):
                          salary_profile: SalaryProfile,
                          economic_factors: EconomicFactors) -> PensionResult:
         """计算退休金"""
-        # 使用增强计算器获得更准确的结果
-        return self.enhanced_calculator.calculate_pension_result(person, salary_profile, economic_factors)
+        # 使用修正计算器获得更准确的结果
+        return self.corrected_calculator.calculate_pension_result(person, salary_profile, economic_factors)
 
     def calculate_tax(self,
                      annual_income: float,
                      deductions: Optional[Dict[str, float]] = None,
                      **kwargs) -> Dict[str, float]:
         """计算个人所得税"""
-        # 使用增强计算器获得更准确的结果
-        tax_result = self.enhanced_calculator.calculate_tax_detailed(annual_income)
+        # 使用修正计算器获得更准确的结果
+        tax_result = self.corrected_calculator.calculate_tax_detailed(annual_income)
         return {
             'total_tax': tax_result.get('total_tax', 0),
             'taxable_income': tax_result.get('taxable_income', 0),
@@ -69,18 +71,23 @@ class JapanPlugin(BaseCountryPlugin):
         """计算厚生年金缴费"""
         annual_salary = monthly_salary * 12
         
-        # 使用增强计算器的社保计算
-        result = self.enhanced_calculator.calculate_tax_detailed(annual_salary)
+        # 使用修正计算器的社保计算
+        result = self.corrected_calculator.calculate_tax_detailed(annual_salary)
         social_security = result.get('social_security', {})
         
         # 计算年度和月度缴费
-        kosei_annual = social_security.get('kosei', 0)
-        kenko_annual = social_security.get('kenko', 0)
-        koyo_annual = social_security.get('koyo', 0)
+        kosei_info = social_security.get('kosei', {})
+        kenko_info = social_security.get('kenko', {})
+        koyo_info = social_security.get('koyo', {})
         
-        # 员工和雇主各承担一半（除了雇用保险）
-        monthly_employee = (kosei_annual + kenko_annual) / 2 / 12 + koyo_annual / 12
-        monthly_employer = (kosei_annual + kenko_annual) / 2 / 12
+        # 员工和雇主分别计算
+        monthly_employee = (kosei_info.get('employee', 0) + 
+                           kenko_info.get('employee', 0) + 
+                           koyo_info.get('employee', 0))
+        
+        monthly_employer = (kosei_info.get('employer', 0) + 
+                           kenko_info.get('employer', 0) + 
+                           koyo_info.get('employer', 0))
         
         total_employee = monthly_employee * 12 * years
         total_employer = monthly_employer * 12 * years
