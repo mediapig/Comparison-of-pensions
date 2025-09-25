@@ -13,6 +13,7 @@ from .config import JapanConfig
 from .tax_calculator import JapanTaxCalculator
 from .pension_calculator import JapanPensionCalculator
 from .japan_detailed_analyzer import JapanDetailedAnalyzer
+from .japan_enhanced_calculator import JapanEnhancedCalculator
 
 class JapanPlugin(BaseCountryPlugin):
     """日本插件"""
@@ -25,6 +26,7 @@ class JapanPlugin(BaseCountryPlugin):
         super().__init__()
         self.tax_calculator = JapanTaxCalculator()
         self.pension_calculator = JapanPensionCalculator()
+        self.enhanced_calculator = JapanEnhancedCalculator()
         self.detailed_analyzer = JapanDetailedAnalyzer(None)  # 将在需要时设置engine
 
     def _load_config(self) -> PluginConfig:
@@ -43,19 +45,21 @@ class JapanPlugin(BaseCountryPlugin):
                          salary_profile: SalaryProfile,
                          economic_factors: EconomicFactors) -> PensionResult:
         """计算退休金"""
-        return self.pension_calculator.calculate_pension(person, salary_profile, economic_factors)
+        # 使用增强计算器获得更准确的结果
+        return self.enhanced_calculator.calculate_pension_result(person, salary_profile, economic_factors)
 
     def calculate_tax(self,
                      annual_income: float,
                      deductions: Optional[Dict[str, float]] = None,
                      **kwargs) -> Dict[str, float]:
         """计算个人所得税"""
-        tax_result = self.tax_calculator.calculate_income_tax(annual_income, deductions)
+        # 使用增强计算器获得更准确的结果
+        tax_result = self.enhanced_calculator.calculate_tax_detailed(annual_income)
         return {
             'total_tax': tax_result.get('total_tax', 0),
             'taxable_income': tax_result.get('taxable_income', 0),
-            'effective_rate': self.tax_calculator.calculate_effective_tax_rate(annual_income, deductions),
-            'net_income': self.tax_calculator.calculate_net_income(annual_income, deductions)
+            'effective_rate': tax_result.get('effective_rate', 0),
+            'net_income': tax_result.get('net_income', 0)
         }
 
     def calculate_social_security(self,
@@ -63,14 +67,21 @@ class JapanPlugin(BaseCountryPlugin):
                                 years: int,
                                 **kwargs) -> Dict[str, float]:
         """计算厚生年金缴费"""
-        # 厚生年金缴费率
-        pension_rate = 0.1835  # 18.35%
-        employee_rate = pension_rate / 2  # 9.175%
-        employer_rate = pension_rate / 2  # 9.175%
-
-        monthly_employee = monthly_salary * employee_rate
-        monthly_employer = monthly_salary * employer_rate
-
+        annual_salary = monthly_salary * 12
+        
+        # 使用增强计算器的社保计算
+        result = self.enhanced_calculator.calculate_tax_detailed(annual_salary)
+        social_security = result.get('social_security', {})
+        
+        # 计算年度和月度缴费
+        kosei_annual = social_security.get('kosei', 0)
+        kenko_annual = social_security.get('kenko', 0)
+        koyo_annual = social_security.get('koyo', 0)
+        
+        # 员工和雇主各承担一半（除了雇用保险）
+        monthly_employee = (kosei_annual + kenko_annual) / 2 / 12 + koyo_annual / 12
+        monthly_employer = (kosei_annual + kenko_annual) / 2 / 12
+        
         total_employee = monthly_employee * 12 * years
         total_employer = monthly_employer * 12 * years
 
