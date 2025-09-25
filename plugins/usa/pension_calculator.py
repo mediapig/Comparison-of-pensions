@@ -44,7 +44,11 @@ class USAPensionCalculator:
             replacement_rate = 0.30
         else:  # 月收入10000美元以上
             replacement_rate = 0.20
-        
+
+        # 进一步限制高收入者的社安金
+        if contribution_base > 13350:  # 超过社安金最高缴费基数
+            replacement_rate = 0.15  # 进一步降低替代率
+
         monthly_benefit = contribution_base * replacement_rate
 
         total_contribution = annual_contribution * work_years
