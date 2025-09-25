@@ -235,6 +235,19 @@ class JapanDetailedAnalyzer:
         # 执行综合分析
         analysis_result = self.analyze_comprehensive(monthly_salary_cny, person.age)
         
-        # 打印JSON格式结果
+        # 打印JSON格式结果，保留2位小数
         import json
-        print(json.dumps(analysis_result, ensure_ascii=False, indent=2))
+        
+        def format_numbers(obj):
+            """递归格式化数字，保留2位小数"""
+            if isinstance(obj, dict):
+                return {k: format_numbers(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [format_numbers(item) for item in obj]
+            elif isinstance(obj, float):
+                return round(obj, 2)
+            else:
+                return obj
+        
+        formatted_result = format_numbers(analysis_result)
+        print(json.dumps(formatted_result, ensure_ascii=False, indent=2))
