@@ -104,16 +104,24 @@ class USADetailedAnalyzer:
                     "雇员缴费": min(annual_salary_usd, 160200) * 0.062,
                     "雇主缴费": min(annual_salary_usd, 160200) * 0.062
                 },
+                "Medicare缴费": {
+                    "雇员费率": 1.45,
+                    "雇主费率": 1.45,
+                    "总费率": 2.9,
+                    "年缴费金额": annual_salary_usd * 0.029,
+                    "雇员缴费": annual_salary_usd * 0.0145,
+                    "雇主缴费": annual_salary_usd * 0.0145
+                },
                 "401k缴费": {
                     "缴费基数": annual_salary_usd,
                     "员工缴费": min(annual_salary_usd * 0.10, 23500),
-                    "雇主匹配": min(annual_salary_usd * 0.10, 23500) * 0.4,  # 40%匹配率
-                    "总缴费": min(annual_salary_usd * 0.10, 23500) * 1.4
+                    "雇主匹配": self._calculate_employer_match(annual_salary_usd),
+                    "总缴费": min(annual_salary_usd * 0.10, 23500) + self._calculate_employer_match(annual_salary_usd)
                 },
                 "税务情况": {
-                    "应税收入": annual_salary_usd - min(annual_salary_usd * 0.10, 23500) - 14600,  # 401k缴费+标准扣除
-                    "所得税": max(0, (annual_salary_usd - min(annual_salary_usd * 0.10, 23500) - 14600) * 0.22),  # 简化税率
-                    "实际到手收入": annual_salary_usd - min(annual_salary_usd, 160200) * 0.062 - min(annual_salary_usd * 0.10, 23500) - max(0, (annual_salary_usd - min(annual_salary_usd * 0.10, 23500) - 14600) * 0.22)
+                    "应税收入": self._calculate_taxable_income(annual_salary_usd),
+                    "所得税": self._calculate_federal_tax(annual_salary_usd),
+                    "实际到手收入": self._calculate_net_income(annual_salary_usd)
                 }
             },
             "工作期总计": {
@@ -125,9 +133,9 @@ class USADetailedAnalyzer:
                     "实际到手收入": annual_salary_usd * work_years - total_contribution
                 },
                 "社保缴费总计": {
-                    "雇员缴费": total_ss_contribution / 2 if total_ss_contribution > 0 else 0,
-                    "雇主缴费": total_ss_contribution / 2 if total_ss_contribution > 0 else 0,
-                    "总缴费": total_ss_contribution
+                    "雇员缴费": self._calculate_total_ss_employee(annual_salary_usd, work_years),
+                    "雇主缴费": self._calculate_total_ss_employer(annual_salary_usd, work_years),
+                    "总缴费": self._calculate_total_ss_employee(annual_salary_usd, work_years) + self._calculate_total_ss_employer(annual_salary_usd, work_years)
                 },
                 "401k缴费总计": {
                     "雇员缴费": total_k401_contribution * 0.6,  # 估算员工缴费占比
@@ -162,6 +170,78 @@ class USADetailedAnalyzer:
                 }
             }
         }
+
+    def _calculate_taxable_income(self, annual_salary: float) -> float:
+        """计算应税收入"""
+        # 401k缴费（税前）
+        k401_contribution = min(annual_salary * 0.10, 23500)
+        # 标准扣除额（2024年）
+        standard_deduction = 14600
+        return max(0, annual_salary - k401_contribution - standard_deduction)
+
+    def _calculate_federal_tax(self, annual_salary: float) -> float:
+        """计算联邦所得税（2024年税表）"""
+        taxable_income = self._calculate_taxable_income(annual_salary)
+
+        # 2024年联邦税率表（单身）
+        tax_brackets = [
+            (0, 11000, 0.10),
+            (11000, 44725, 0.12),
+            (44725, 95375, 0.22),
+            (95375, 182050, 0.24),
+            (182050, 231250, 0.32),
+            (231250, 578125, 0.35),
+            (578125, float('inf'), 0.37)
+        ]
+
+        total_tax = 0
+        for min_income, max_income, rate in tax_brackets:
+            if taxable_income > min_income:
+                taxable_in_bracket = min(taxable_income, max_income) - min_income
+                total_tax += taxable_in_bracket * rate
+
+        return total_tax
+
+    def _calculate_net_income(self, annual_salary: float) -> float:
+        """计算实际到手收入"""
+        # 401k缴费（税前）
+        k401_contribution = min(annual_salary * 0.10, 23500)
+        # 社保税（6.2%）
+        ss_tax = min(annual_salary, 160200) * 0.062
+        # Medicare税（1.45%）
+        medicare_tax = annual_salary * 0.0145
+        # 联邦所得税
+        federal_tax = self._calculate_federal_tax(annual_salary)
+
+        return annual_salary - k401_contribution - ss_tax - medicare_tax - federal_tax
+
+    def _calculate_total_ss_employee(self, annual_salary: float, work_years: int) -> float:
+        """计算社保雇员缴费总计"""
+        # 简化计算：假设薪资不变
+        ss_contribution_base = min(annual_salary, 160200)
+        return ss_contribution_base * 0.062 * work_years
+
+    def _calculate_total_ss_employer(self, annual_salary: float, work_years: int) -> float:
+        """计算社保雇主缴费总计"""
+        # 简化计算：假设薪资不变
+        ss_contribution_base = min(annual_salary, 160200)
+        return ss_contribution_base * 0.062 * work_years
+    
+    def _calculate_employer_match(self, annual_salary: float) -> float:
+        """计算雇主匹配（使用tiered_3_2规则：100%匹配前3% + 50%匹配接下2%）"""
+        employee_contribution = min(annual_salary * 0.10, 23500)
+        
+        # 分层匹配规则
+        # 第一层：100%匹配前3%
+        tier1_contribution = min(employee_contribution, annual_salary * 0.03)
+        tier1_match = tier1_contribution * 1.0
+        
+        # 第二层：50%匹配接下2%
+        remaining_contribution = max(0, employee_contribution - tier1_contribution)
+        tier2_contribution = min(remaining_contribution, annual_salary * 0.02)
+        tier2_match = tier2_contribution * 0.5
+        
+        return tier1_match + tier2_match
 
     def _convert_usd_to_cny(self, usd_amount: float) -> float:
         """将美元转换为人民币"""
