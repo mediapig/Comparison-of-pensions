@@ -52,6 +52,7 @@ class JapanPensionCalculator:
             monthly_pension=monthly_pension,
             total_contribution=total_contribution,
             total_benefit=total_benefit,
+            retirement_account_balance=total_balance,
             break_even_age=break_even_age,
             roi=roi,
             original_currency="JPY",
