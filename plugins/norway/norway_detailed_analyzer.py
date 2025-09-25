@@ -227,11 +227,6 @@ class NorwayDetailedAnalyzer:
                 }
             },
 
-            "退休年龄灵活性": {
-                "正常退休": "62岁 (标准月金额)",
-                "延迟退休": "75岁 (月金额增加)",
-                "说明": "退休金随领取年龄调整，越晚领取月金额越高"
-            },
 
             "人民币对比": {
                 "月退休金": self._format_decimals(monthly_pension_cny),
