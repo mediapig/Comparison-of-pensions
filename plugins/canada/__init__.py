@@ -1,1 +1,0 @@
-# Canada pension calculator plugin

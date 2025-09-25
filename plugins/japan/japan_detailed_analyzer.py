@@ -206,22 +206,22 @@ class JapanDetailedAnalyzer:
             }
         }
 
-    def _analyze_roi(self, pension_analysis: Dict[str, Any], 
+    def _analyze_roi(self, pension_analysis: Dict[str, Any],
                     lifetime_summary: Dict[str, Any]) -> Dict[str, Any]:
         """分析投资回报（只考虑个人现金流）"""
         pension_result = pension_analysis["退休金收入"]
         # 只使用雇员缴费，不包含雇主缴费
         employee_ss_total = lifetime_summary["社保缴费总计"]["雇员缴费"]
-        
+
         # 计算简单回报率（基于个人投入）
         total_benefit = pension_result["退休期总领取"]
         simple_roi = ((total_benefit / employee_ss_total) - 1) * 100 if employee_ss_total > 0 else 0
-        
+
         # 计算回本年龄（基于个人投入）
         monthly_pension = pension_result["月领取金额"]
         break_even_years = employee_ss_total / (monthly_pension * 12) if monthly_pension > 0 else 0
         break_even_age = 65 + break_even_years
-        
+
         return {
             "说明": "IRR和回本分析只考虑个人现金流（雇员缴费），不包含雇主缴费",
             "个人投入": employee_ss_total,
