@@ -30,7 +30,7 @@ class NorwayPensionCalculator:
             'income_cap_multiplier': 7.1,       # 收入上限倍数 (G的7.1倍)
             'minimum_pension': 200000,           # 最低养老金 (年)
             'maximum_pension': 1200000,          # 最高养老金 (年)
-            'retirement_age': 67,                # 退休年龄
+            'retirement_age': 62,                # 退休年龄
             'early_retirement_age': 62,          # 提前退休年龄
             'late_retirement_age': 75,           # 延迟退休年龄
 
@@ -62,8 +62,8 @@ class NorwayPensionCalculator:
         # 计算工作年限
         work_years = person.work_years
         if work_years <= 0:
-            # 默认从30岁工作到67岁退休，共37年
-            work_years = 67 - person.age if person.age < 67 else 37
+            # 默认从30岁工作到62岁退休，共32年
+            work_years = 62 - person.age if person.age < 62 else 32
 
         # 计算退休年龄
         retirement_age = self.pension_parameters['retirement_age']
@@ -84,9 +84,8 @@ class NorwayPensionCalculator:
             salary_profile, work_years, economic_factors
         )
 
-        # 计算总缴费 (社保缴费 + 职业养老金缴费 + 个人养老金缴费)
-        total_contribution = (national_pension['total_ss_contribution'] +
-                            occupational_pension['total_contribution'] +
+        # 计算总缴费 (职业养老金缴费 + 个人养老金缴费，不包括国家养老金社保缴费)
+        total_contribution = (occupational_pension['total_contribution'] +
                             individual_pension['total_contribution'])
 
         # 计算总月退休金
@@ -94,17 +93,18 @@ class NorwayPensionCalculator:
                          occupational_pension['monthly_pension'] +
                          individual_pension['monthly_pension'])
 
-        # 计算总收益
+        # 计算总收益 (只计算OTP和IPS的收益，不包括国家养老金)
+        otp_ips_monthly_pension = occupational_pension['monthly_pension'] + individual_pension['monthly_pension']
         total_benefit = self._calculate_total_benefit(
-            monthly_pension, person.age, retirement_age, economic_factors
+            otp_ips_monthly_pension, person.age, retirement_age, economic_factors
         )
 
         # 计算ROI
         roi = self._calculate_roi(total_contribution, total_benefit, work_years)
 
-        # 计算回本年龄
+        # 计算回本年龄 (基于OTP和IPS的缴费和收益)
         break_even_age = self._calculate_break_even_age(
-            total_contribution, monthly_pension, economic_factors
+            total_contribution, otp_ips_monthly_pension, economic_factors
         )
 
         return PensionResult(
@@ -278,20 +278,20 @@ class NorwayPensionCalculator:
         annual_total_ss_contribution = annual_employee_ss_contribution + annual_employer_ss_contribution
 
         # 2. 养老金计提 (基于18.1%的积累率，进入名义账户)
-        # 工资增长设置为0
-        wage_index_growth = 0.0
+        # 考虑工资/G指数增值 (假设年增长2%)
+        wage_index_growth = 0.02
         total_pension_accrual = 0
-        
+
         for year in range(work_years):
-            # 每年工资不变
-            year_salary = annual_salary
+            # 每年工资按指数增长
+            year_salary = annual_salary * (1 + wage_index_growth) ** year
             year_capped_salary = min(year_salary, income_cap)
             year_accrual = year_capped_salary * self.pension_parameters['accrual_rate']
             total_pension_accrual += year_accrual
 
         # 3. 计算退休金 (基于累积额和分配系数)
-        # 67岁退休的分配系数约为21年 (预期寿命调整)
-        distribution_factor = 21  # 67岁退休，预期寿命约88岁
+        # 62岁退休的分配系数约为26年 (预期寿命调整)
+        distribution_factor = 26  # 62岁退休，预期寿命约88岁
         annual_pension = total_pension_accrual / distribution_factor
 
         # 应用最低和最高限制
@@ -375,10 +375,10 @@ class NorwayPensionCalculator:
                                     work_years: int,
                                     economic_factors: EconomicFactors) -> Dict:
         """计算个人养老金 (IPS)"""
-        # 员工自愿缴费3% (从OTP移到这里)
+        # 员工自愿缴费3% (从OTP移到这里)，但受年缴费上限限制
         annual_salary = salary_profile.monthly_salary * 12
         employee_contribution_rate = 0.03  # 员工自愿缴费3%
-        annual_contribution = annual_salary * employee_contribution_rate
+        annual_contribution = min(annual_salary * employee_contribution_rate, self.pension_parameters['ips_annual_limit'])
         total_contribution = annual_contribution * work_years
 
         # 如果有缴费，计算投资收益 (使用保守的4%年化回报)

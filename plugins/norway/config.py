@@ -11,9 +11,9 @@ class NorwayConfig:
     def __init__(self):
         # 退休年龄配置
         self.retirement_ages = {
-            'male': 67,      # 男性退休年龄
-            'female': 67,     # 女性退休年龄
-            'default': 67     # 默认退休年龄
+            'male': 62,      # 男性退休年龄
+            'female': 62,     # 女性退休年龄
+            'default': 62     # 默认退休年龄
         }
 
         # 税年

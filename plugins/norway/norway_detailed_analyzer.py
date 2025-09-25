@@ -39,8 +39,8 @@ class NorwayDetailedAnalyzer:
         individual_pension = details.get('individual_pension', {})
 
         # 计算工作年限和退休年限
-        work_years = details.get('work_years', 37)
-        retirement_age = details.get('retirement_age', 67)
+        work_years = details.get('work_years', 32)
+        retirement_age = details.get('retirement_age', 62)
         retirement_years = 90 - retirement_age  # 假设活到90岁
 
         # 计算人民币对比
@@ -173,8 +173,8 @@ class NorwayDetailedAnalyzer:
                 },
                 "职业养老金缴费": self._format_decimals(occupational_pension.get('total_contribution', 0)),
                 "个人养老金缴费": self._format_decimals(individual_pension.get('total_contribution', 0)),
-                "总缴费": self._format_decimals(pension_result.total_contribution),
-                "缴费占比": f"{(pension_result.total_contribution / (salary_profile.monthly_salary * 12 * work_years) * 100):.1f}%"
+                "个人投资缴费": self._format_decimals(pension_result.total_contribution),
+                "个人投资占比": f"{(pension_result.total_contribution / (salary_profile.monthly_salary * 12 * work_years) * 100):.1f}%"
             },
 
             "退休期分析": {
@@ -188,8 +188,9 @@ class NorwayDetailedAnalyzer:
             },
 
             "投资回报分析": {
-                "总投入": self._format_decimals(pension_result.total_contribution),
-                "总产出": self._format_decimals(pension_result.total_benefit),
+                "说明": "仅计算职业养老金和个人养老金的投资回报，国家养老金不计入个人投资",
+                "个人投资投入": self._format_decimals(pension_result.total_contribution),
+                "个人投资产出": self._format_decimals(pension_result.total_benefit),
                 "净收益": self._format_decimals(pension_result.total_benefit - pension_result.total_contribution),
                 "投资回报率": f"{pension_result.roi:.1f}%",
                 "回本年龄": pension_result.break_even_age if pension_result.break_even_age else "无法回本",
@@ -227,10 +228,9 @@ class NorwayDetailedAnalyzer:
             },
 
             "退休年龄灵活性": {
-                "提前退休": "62岁 (月金额减少)",
-                "正常退休": "67岁 (标准月金额)",
+                "正常退休": "62岁 (标准月金额)",
                 "延迟退休": "75岁 (月金额增加)",
-                "说明": "退休金随领取年龄调整，越早领取月金额越少，越晚领取月金额越高"
+                "说明": "退休金随领取年龄调整，越晚领取月金额越高"
             },
 
             "人民币对比": {
