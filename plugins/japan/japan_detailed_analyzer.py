@@ -112,10 +112,14 @@ class JapanDetailedAnalyzer:
 
         # 计算社保缴费
         ss_result = plugin.calculate_social_security(monthly_salary, person.work_years)
-
+        
+        # 获取详细的社保信息
+        detailed_tax_result = plugin.corrected_calculator.calculate_tax_detailed(annual_income)
+        social_security_details = detailed_tax_result.get('social_security', {})
+        
         # 计算个税（包含工资所得控除和基础控除）
         tax_result = plugin.calculate_tax(annual_income)
-
+        
         # 计算实际到手（扣除个税和社保）
         net_income = annual_income - tax_result.get('total_tax', 0) - ss_result.get('monthly_employee', 0) * 12
 
@@ -127,12 +131,32 @@ class JapanDetailedAnalyzer:
                 "年薪上限限制": False
             },
             "社保缴费": {
-                "雇员费率": 9.175,
-                "雇主费率": 9.175,
-                "总费率": 18.35,
-                "年缴费金额": ss_result.get('total_lifetime', 0) / person.work_years if person.work_years > 0 else 0,
-                "雇员缴费": ss_result.get('monthly_employee', 0) * 12,
-                "雇主缴费": ss_result.get('monthly_employer', 0) * 12
+                "厚生年金": {
+                    "费率": "9.15%+9.15%",
+                    "基数上限": "650,000日元/月",
+                    "实际基数": social_security_details.get('kosei', {}).get('base', 0),
+                    "员工年缴费": social_security_details.get('kosei', {}).get('employee', 0) * 12,
+                    "雇主年缴费": social_security_details.get('kosei', {}).get('employer', 0) * 12
+                },
+                "健康保险": {
+                    "费率": "约10%对半",
+                    "基数上限": "1,390,000日元/月",
+                    "实际基数": social_security_details.get('kenko', {}).get('base', 0),
+                    "员工年缴费": social_security_details.get('kenko', {}).get('employee', 0) * 12,
+                    "雇主年缴费": social_security_details.get('kenko', {}).get('employer', 0) * 12
+                },
+                "雇用保险": {
+                    "费率": "0.6%员工/0.3%雇主",
+                    "基数上限": "无上限",
+                    "实际基数": monthly_salary,
+                    "员工年缴费": social_security_details.get('koyo', {}).get('employee', 0) * 12,
+                    "雇主年缴费": social_security_details.get('koyo', {}).get('employer', 0) * 12
+                },
+                "总计": {
+                    "员工年缴费": ss_result.get('monthly_employee', 0) * 12,
+                    "雇主年缴费": ss_result.get('monthly_employer', 0) * 12,
+                    "总年缴费": ss_result.get('total_lifetime', 0) / person.work_years if person.work_years > 0 else 0
+                }
             },
             "税务情况": {
                 "应税收入": tax_result.get('taxable_income', 0),
