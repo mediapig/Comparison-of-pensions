@@ -94,25 +94,25 @@ def calc_social_security_corrected(monthly_salary: float) -> Dict[str, float]:
 
 def calc_pension_corrected(monthly_salary: float, work_years: int) -> Dict[str, float]:
     """计算养老金（修正版）"""
+    # 计算加入月数
+    months_enrolled = work_years * 12
+    
     # 国民年金：固定66,250日元/月（满40年），按工作年限比例
-    kokumin_months = work_years * 12
-    kokumin_max_months = 40 * 12  # 480个月
-    kokumin_rate = min(kokumin_months / kokumin_max_months, 1.0)
-    kokumin_monthly = 66_250 * kokumin_rate
-
+    full_kokumin_month = 66_250
+    kokumin_monthly = full_kokumin_month * min(1.0, months_enrolled / 480.0)
+    
     # 厚生年金：平均标准报酬月额 × (5.481/1000) × 加入月数
-    # 注意：这里应该计算年额，然后除以12得到月额
-    kosei_base = min(monthly_salary, 650_000)  # 厚生年金上限
-    kosei_annual = kosei_base * (5.481 / 1000) * work_years * 12  # 年额
-    kosei_monthly = kosei_annual / 12  # 月额
-
+    avg_std_wage = min(monthly_salary, 650_000)  # 厚生年金上限
+    kosei_monthly = (avg_std_wage * 5.481 / 1000 * months_enrolled) / 12
+    
     total_monthly = kokumin_monthly + kosei_monthly
-
+    
     return {
         'kokumin_monthly': kokumin_monthly,
         'kosei_monthly': kosei_monthly,
         'total_monthly': total_monthly,
-        'kokumin_rate': kokumin_rate
+        'months_enrolled': months_enrolled,
+        'kokumin_rate': min(1.0, months_enrolled / 480.0)
     }
 
 class JapanCorrectedCalculator:
@@ -130,7 +130,8 @@ class JapanCorrectedCalculator:
         # 获取基本参数
         monthly_salary = salary_profile.monthly_salary
         annual_salary = monthly_salary * 12
-        work_years = person.work_years if person.work_years > 0 else 35
+        # 正确计算工作年限：从当前年龄到退休年龄
+        work_years = 65 - person.age
         retirement_age = 65
 
         # 计算社保

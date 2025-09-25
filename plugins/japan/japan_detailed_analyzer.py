@@ -112,14 +112,14 @@ class JapanDetailedAnalyzer:
 
         # 计算社保缴费
         ss_result = plugin.calculate_social_security(monthly_salary, person.work_years)
-        
+
         # 获取详细的社保信息
         detailed_tax_result = plugin.corrected_calculator.calculate_tax_detailed(annual_income)
         social_security_details = detailed_tax_result.get('social_security', {})
-        
+
         # 计算个税（包含工资所得控除和基础控除）
         tax_result = plugin.calculate_tax(annual_income)
-        
+
         # 计算实际到手（扣除个税和社保）
         net_income = annual_income - tax_result.get('total_tax', 0) - ss_result.get('monthly_employee', 0) * 12
 
@@ -174,7 +174,8 @@ class JapanDetailedAnalyzer:
     def _analyze_lifetime_summary(self, plugin, person: Person, salary_profile: SalaryProfile,
                                 economic_factors: EconomicFactors) -> Dict[str, Any]:
         """分析全生命周期"""
-        work_years = person.work_years
+        # 正确计算工作年限：从当前年龄到退休年龄
+        work_years = 65 - person.age
         monthly_salary = salary_profile.monthly_salary
         annual_income = monthly_salary * 12
 
