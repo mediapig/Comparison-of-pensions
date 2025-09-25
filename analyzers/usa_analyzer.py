@@ -21,7 +21,7 @@ def analyze_usa_only(engine: PensionEngine, scenario_name: str, monthly_salary: 
     
     salary_profile = SalaryProfile(
         monthly_salary=monthly_salary,
-        annual_growth_rate=0.02,
+        annual_growth_rate=0.0,
         contribution_start_age=30,
         base_salary=monthly_salary
     )

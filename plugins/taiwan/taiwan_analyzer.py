@@ -91,21 +91,14 @@ class TaiwanPensionAnalyzer:
             print(f"退休后年养老金: {converter.format_amount(result.monthly_pension * 12, 'TWD')}")
             print(f"替代率: {replacement_rate:.1f}%")
 
-    def analyze_all_scenarios(self):
-        """分析所有场景"""
+    def analyze_all_scenarios(self, monthly_salary: float = 10000):
+        """分析指定工资的养老金情况"""
         print("🇹🇼 === 台湾养老金详细分析系统 ===")
         print("分析劳保年金的详细情况\n")
 
-        # 定义两个场景
-        scenarios = [
-            ("高收入场景", 50000),  # 月薪5万人民币
-            ("低收入场景", 5000)    # 月薪5千人民币
-        ]
-
-        for scenario_name, monthly_salary in scenarios:
-            self.analyze_scenario(scenario_name, monthly_salary)
-            print(f"\n{'='*80}")
-            print(f"✅ {scenario_name}分析完成")
-            print(f"{'='*80}")
+        self.analyze_scenario("分析场景", monthly_salary)
+        print(f"\n{'='*80}")
+        print(f"✅ 分析完成")
+        print(f"{'='*80}")
 
         print(f"\n🎯 台湾养老金分析完成！")

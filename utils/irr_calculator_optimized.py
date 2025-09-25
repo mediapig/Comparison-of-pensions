@@ -320,7 +320,7 @@ class IRRCalculatorOptimized:
         
         if test_cases is None:
             test_cases = [
-                (5000, 30, 65),
+                (10000, 30, 65),
                 (8000, 25, 60),
                 (12000, 35, 70),
             ]

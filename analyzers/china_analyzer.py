@@ -40,10 +40,10 @@ def analyze_china_only(engine: PensionEngine, scenario_name: str, monthly_salary
         start_work_date=date(2024, 1, 1)  # 2024年开始工作
     )
 
-    # 创建工资档案 - 工资每年增长2%
+    # 创建工资档案 - 工资每年增长0%
     salary_profile = SalaryProfile(
         monthly_salary=monthly_salary,
-        annual_growth_rate=0.02,
+        annual_growth_rate=0.0,
         contribution_start_age=30,
         base_salary=monthly_salary
     )

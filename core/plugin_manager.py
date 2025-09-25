@@ -129,7 +129,7 @@ class PluginManager:
 
                     salary_profile = SalaryProfile(
                         monthly_salary=10000,
-                        annual_growth_rate=0.03,
+                        annual_growth_rate=0.0,
                         contribution_start_age=22
                     )
 
