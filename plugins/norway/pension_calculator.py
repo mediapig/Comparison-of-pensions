@@ -272,8 +272,8 @@ class NorwayPensionCalculator:
             return 0.0
         return max(0.0, min(x, upper) - lower)
 
-    def _calculate_national_pension(self, 
-                                  salary_profile: SalaryProfile, 
+    def _calculate_national_pension(self,
+                                  salary_profile: SalaryProfile,
                                   work_years: int,
                                   economic_factors: EconomicFactors) -> Dict:
         """计算国家养老金 (Folketrygden) - 按照修正版伪代码"""
@@ -284,46 +284,46 @@ class NorwayPensionCalculator:
         g0 = self.pension_parameters['g_basic_amount']
         state_accrual = self.pension_parameters['accrual_rate']
         state_cap_mult = self.pension_parameters['income_cap_multiplier']
-        
+
         # 年度循环计算
         state_notional = 0.0  # 国家养老金名义账户余额
         soc_tax_emp_total = 0.0  # 雇员社保税总计
         soc_tax_er_total = 0.0   # 雇主社保税总计
-        
+
         wage = wage0
         g = g0
-        
+
         for year in range(work_years):
             # 国家养老金：计提 + 名义账户指数化
             state_cap = state_cap_mult * g
             base_state = min(wage, state_cap)
             accrual = state_accrual * base_state  # 当年名义计提
-            
+
             # 年初名义余额先指数化，再入账
             state_notional = state_notional * (1.0 + g_growth) + accrual
-            
+
             # 社保税统计（仅统计，不参与个人账户）
             soc_tax_emp = 0.082 * wage  # 雇员8.2%
             soc_tax_er = 0.141 * wage   # 雇主14.1%
             soc_tax_emp_total += soc_tax_emp
             soc_tax_er_total += soc_tax_er
-            
+
             # 下一年增长
             wage = wage * (1.0 + wage_growth)
             g = g * (1.0 + g_growth)
-        
+
         # 计算退休金 (基于分配系数)
         retirement_age = self.pension_parameters['retirement_age']
         distribution_factor = self._get_distribution_factor(retirement_age)
         annual_pension = state_notional / distribution_factor
-        
+
         # 应用最低和最高限制
         annual_pension = max(
             self.pension_parameters['minimum_pension'],
             min(annual_pension, self.pension_parameters['maximum_pension'])
         )
         monthly_pension = annual_pension / 12
-        
+
         return {
             'name': '国家养老金 (Folketrygden)',
             'annual_employee_ss_contribution': soc_tax_emp_total / work_years,  # 年度平均社保缴费
@@ -340,8 +340,8 @@ class NorwayPensionCalculator:
             'state_notional_balance': state_notional
         }
 
-    def _calculate_occupational_pension(self, 
-                                      salary_profile: SalaryProfile, 
+    def _calculate_occupational_pension(self,
+                                      salary_profile: SalaryProfile,
                                       work_years: int,
                                       economic_factors: EconomicFactors) -> Dict:
         """计算职业养老金 (OTP) - 按照修正版伪代码"""
@@ -355,32 +355,32 @@ class NorwayPensionCalculator:
         otp_high_rate = 0.181 # 7.1G-12G区间雇主缴费率
         state_cap_mult = 7.1
         otp_high_mult = 12.0
-        
+
         # 年度循环计算
         otp_balance = 0.0
         total_contribution = 0.0
-        
+
         wage = wage0
         g = g0
-        
+
         for year in range(work_years):
             # 职业养老金（OTP，雇主缴），按G分段
             base_low = self._clamp_to_band(wage, 1.0 * g, state_cap_mult * g)         # 1G ~ 7.1G
             base_high = self._clamp_to_band(wage, state_cap_mult * g, otp_high_mult * g) # 7.1G ~ 12G
             otp_contrib = base_low * otp_low_rate + base_high * otp_high_rate  # 全由雇主缴
-            
+
             otp_balance = otp_balance * (1.0 + r_otp) + otp_contrib
             total_contribution += otp_contrib
-            
+
             # 下一年增长
             wage = wage * (1.0 + wage_growth)
             g = g * (1.0 + g_growth)
-        
+
         # 计算月退休金 (4%提取规则)
         draw_rate_otp = 0.04
         annual_otp = otp_balance * draw_rate_otp
         monthly_otp = annual_otp / 12.0
-        
+
         return {
             'name': '职业养老金 (OTP)',
             'employer_rate_1_7_1g': otp_low_rate,
@@ -395,8 +395,8 @@ class NorwayPensionCalculator:
             'annual_pension': annual_otp
         }
 
-    def _calculate_individual_pension(self, 
-                                    salary_profile: SalaryProfile, 
+    def _calculate_individual_pension(self,
+                                    salary_profile: SalaryProfile,
                                     work_years: int,
                                     economic_factors: EconomicFactors) -> Dict:
         """计算个人养老金 (IPS) - 按照修正版伪代码"""
@@ -405,27 +405,27 @@ class NorwayPensionCalculator:
         wage_growth = salary_profile.annual_growth_rate
         r_ips = 0.04  # 个人养老金投资回报
         ips_cap = self.pension_parameters['ips_annual_limit']
-        
+
         # 年度循环计算
         ips_balance = 0.0
         total_contribution = 0.0
-        
+
         wage = wage0
-        
+
         for year in range(work_years):
             # 个人养老金（IPS，自愿）
             ips_contrib = min(0.03 * wage, ips_cap)  # 3%与15k上限取小值
             ips_balance = ips_balance * (1.0 + r_ips) + ips_contrib
             total_contribution += ips_contrib
-            
+
             # 下一年增长
             wage = wage * (1.0 + wage_growth)
-        
+
         # 计算月退休金 (4%提取规则)
         draw_rate_ips = 0.04
         annual_ips = ips_balance * draw_rate_ips
         monthly_ips = annual_ips / 12.0
-        
+
         return {
             'name': '个人养老金 (IPS)',
             'employee_contribution_rate': 0.03,
