@@ -109,7 +109,7 @@ class NorwayPlugin(BaseCountryPlugin):
             'country_code': self.COUNTRY_CODE,
             'country_name': self.COUNTRY_NAME,
             'currency': self.CURRENCY,
-            'retirement_age': 67,
+            'retirement_age': 62,
             'tax_system': 'Flat tax with basic deduction',
             'pension_system': 'Folketrygden (National Insurance)',
             'social_security_rate': 0.22,
