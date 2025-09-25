@@ -37,7 +37,15 @@ class USAPensionCalculator:
 
         # 简化的社安金计算（实际更复杂）
         # 美国使用平均指数化月收入的复杂公式，这里简化处理
-        monthly_benefit = contribution_base * 0.4  # 大约40%替代率
+        # 对于高收入者，社安金替代率会降低
+        if contribution_base <= 5000:  # 月收入5000美元以下
+            replacement_rate = 0.40
+        elif contribution_base <= 10000:  # 月收入5000-10000美元
+            replacement_rate = 0.30
+        else:  # 月收入10000美元以上
+            replacement_rate = 0.20
+        
+        monthly_benefit = contribution_base * replacement_rate
 
         total_contribution = annual_contribution * work_years
         retirement_years = 20  # 假设领取20年
