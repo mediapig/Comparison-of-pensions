@@ -85,8 +85,8 @@ class NorwayPensionCalculator:
         )
 
         # 计算总缴费 (社保缴费 + 职业养老金缴费 + 个人养老金缴费)
-        total_contribution = (national_pension['total_ss_contribution'] + 
-                            occupational_pension['total_contribution'] + 
+        total_contribution = (national_pension['total_ss_contribution'] +
+                            occupational_pension['total_contribution'] +
                             individual_pension['total_contribution'])
 
         # 计算总月退休金
@@ -260,101 +260,108 @@ class NorwayPensionCalculator:
 
         return history
 
-    def _calculate_national_pension(self, 
-                                  salary_profile: SalaryProfile, 
+    def _calculate_national_pension(self,
+                                  salary_profile: SalaryProfile,
                                   work_years: int,
                                   economic_factors: EconomicFactors) -> Dict:
         """计算国家养老金 (Folketrygden)"""
         # 计算收入上限 (7.1G)
         income_cap = self.pension_parameters['g_basic_amount'] * self.pension_parameters['income_cap_multiplier']
-        
+
         # 计算年度工资
         annual_salary = salary_profile.monthly_salary * 12
         capped_salary = min(annual_salary, income_cap)
-        
+
         # 1. 社保缴费 (进入公共统筹，不是个人账户)
         annual_employee_ss_contribution = annual_salary * self.pension_parameters['national_employee_rate']  # 8.2%
         annual_employer_ss_contribution = annual_salary * self.pension_parameters['national_employer_rate']  # 14.1%
         annual_total_ss_contribution = annual_employee_ss_contribution + annual_employer_ss_contribution
-        
+
         # 2. 养老金计提 (基于18.1%的积累率，进入名义账户)
-        annual_pension_accrual = capped_salary * self.pension_parameters['accrual_rate']  # 18.1%
-        total_pension_accrual = annual_pension_accrual * work_years
-        
-        # 3. 计算退休金 (基于累积额和退休年龄系数)
-        # 退休年龄系数：67岁退休为1.0，每提前1年减少约6%，每延迟1年增加约6%
-        retirement_age_factor = 1.0  # 67岁退休
-        annual_pension = total_pension_accrual * retirement_age_factor
-        
+        # 考虑工资指数化增长 (假设年增长2%)
+        wage_index_growth = 0.02
+        total_pension_accrual = 0
+
+        for year in range(work_years):
+            # 每年工资按指数增长
+            year_salary = annual_salary * (1 + wage_index_growth) ** year
+            year_capped_salary = min(year_salary, income_cap)
+            year_accrual = year_capped_salary * self.pension_parameters['accrual_rate']
+            total_pension_accrual += year_accrual
+
+        # 3. 计算退休金 (基于累积额和分配系数)
+        # 67岁退休的分配系数约为21年 (预期寿命调整)
+        distribution_factor = 21  # 67岁退休，预期寿命约88岁
+        annual_pension = total_pension_accrual / distribution_factor
+
         # 应用最低和最高限制
         annual_pension = max(
             self.pension_parameters['minimum_pension'],
             min(annual_pension, self.pension_parameters['maximum_pension'])
         )
         monthly_pension = annual_pension / 12
-        
+
         return {
             'name': '国家养老金 (Folketrygden)',
             'annual_employee_ss_contribution': annual_employee_ss_contribution,  # 社保缴费
             'annual_employer_ss_contribution': annual_employer_ss_contribution,  # 社保缴费
             'annual_total_ss_contribution': annual_total_ss_contribution,        # 社保缴费
             'total_ss_contribution': annual_total_ss_contribution * work_years,  # 终身社保缴费
-            'annual_pension_accrual': annual_pension_accrual,                    # 年度养老金计提
+            'annual_pension_accrual': annual_salary * self.pension_parameters['accrual_rate'],  # 年度养老金计提
             'total_pension_accrual': total_pension_accrual,                      # 终身养老金计提
             'monthly_pension': monthly_pension,
             'annual_pension': annual_pension,
             'income_cap': income_cap,
             'capped_salary': capped_salary,
-            'retirement_age_factor': retirement_age_factor
+            'distribution_factor': distribution_factor
         }
 
-    def _calculate_occupational_pension(self, 
-                                      salary_profile: SalaryProfile, 
+    def _calculate_occupational_pension(self,
+                                      salary_profile: SalaryProfile,
                                       work_years: int,
                                       economic_factors: EconomicFactors) -> Dict:
         """计算职业养老金 (OTP)"""
         annual_salary = salary_profile.monthly_salary * 12
         g_amount = self.pension_parameters['g_basic_amount']
-        
+
         # 按G分段计算缴费基数
         # 1G = 118,620 NOK, 7.1G = 842,202 NOK, 12G = 1,423,440 NOK
         segment_1g_7_1g = min(annual_salary, 7.1 * g_amount) - g_amount  # 1G-7.1G区间
         segment_7_1g_12g = max(0, min(annual_salary, 12 * g_amount) - 7.1 * g_amount)  # 7.1G-12G区间
-        
+
         # 分段缴费率 (示例计划)
-        # 1G-7.1G区间：雇主5%，员工自愿3%
-        # 7.1G-12G区间：雇主18.1%，员工自愿3%
+        # 1G-7.1G区间：雇主5%
+        # 7.1G-12G区间：雇主18.1%
+        # 员工缴费归入IPS，不在此计算
         employer_rate_1_7_1g = 0.05
         employer_rate_7_1g_12g = 0.181
-        employee_rate = 0.03  # 员工自愿缴费
-        
-        # 计算年度缴费
-        annual_employer_contribution = (segment_1g_7_1g * employer_rate_1_7_1g + 
+
+        # 计算年度缴费 (仅雇主缴费)
+        annual_employer_contribution = (segment_1g_7_1g * employer_rate_1_7_1g +
                                       segment_7_1g_12g * employer_rate_7_1g_12g)
-        annual_employee_contribution = annual_salary * employee_rate  # 员工自愿缴费
-        annual_total_contribution = annual_employer_contribution + annual_employee_contribution
-        
+        annual_total_contribution = annual_employer_contribution
+
         # 计算终身缴费
         total_contribution = annual_total_contribution * work_years
-        
+
         # 计算投资收益 (使用更保守的5%年化回报)
         investment_return = 0.05
-        total_balance = 0
-        for year in range(work_years):
-            year_contribution = annual_total_contribution * (1 + salary_profile.annual_growth_rate) ** year
-            total_balance = (total_balance + year_contribution) * (1 + investment_return)
-        
+        # 使用年金终值公式：FV = PMT × [((1+r)^n - 1) / r]
+        # 其中PMT是年度缴费，r是投资回报率，n是年数
+        if investment_return > 0:
+            total_balance = annual_total_contribution * (((1 + investment_return) ** work_years - 1) / investment_return)
+        else:
+            total_balance = annual_total_contribution * work_years
+
         # 计算月退休金 (4%提取规则)
         monthly_pension = (total_balance * 0.04) / 12
-        
+
         return {
             'name': '职业养老金 (OTP)',
-            'employee_rate': employee_rate,
             'employer_rate_1_7_1g': employer_rate_1_7_1g,
             'employer_rate_7_1g_12g': employer_rate_7_1g_12g,
             'segment_1g_7_1g': segment_1g_7_1g,
             'segment_7_1g_12g': segment_7_1g_12g,
-            'annual_employee_contribution': annual_employee_contribution,
             'annual_employer_contribution': annual_employer_contribution,
             'annual_total_contribution': annual_total_contribution,
             'total_contribution': total_contribution,
@@ -368,18 +375,21 @@ class NorwayPensionCalculator:
                                     work_years: int,
                                     economic_factors: EconomicFactors) -> Dict:
         """计算个人养老金 (IPS)"""
-        # 默认不缴费，但提供计算框架
-        annual_contribution = self.pension_parameters['ips_default_contribution']
+        # 员工自愿缴费3% (从OTP移到这里)
+        annual_salary = salary_profile.monthly_salary * 12
+        employee_contribution_rate = 0.03  # 员工自愿缴费3%
+        annual_contribution = annual_salary * employee_contribution_rate
         total_contribution = annual_contribution * work_years
 
         # 如果有缴费，计算投资收益 (使用保守的4%年化回报)
         if annual_contribution > 0:
             investment_return = 0.04  # 更保守的回报率
-            total_balance = 0
-            for year in range(work_years):
-                year_contribution = annual_contribution * (1 + salary_profile.annual_growth_rate) ** year
-                total_balance = (total_balance + year_contribution) * (1 + investment_return)
-            
+            # 使用年金终值公式
+            if investment_return > 0:
+                total_balance = annual_contribution * (((1 + investment_return) ** work_years - 1) / investment_return)
+            else:
+                total_balance = annual_contribution * work_years
+
             # 计算月退休金 (4%提取规则)
             monthly_pension = (total_balance * 0.04) / 12
         else:
@@ -388,6 +398,7 @@ class NorwayPensionCalculator:
 
         return {
             'name': '个人养老金 (IPS)',
+            'employee_contribution_rate': employee_contribution_rate,
             'annual_contribution': annual_contribution,
             'total_contribution': total_contribution,
             'total_balance': total_balance,
