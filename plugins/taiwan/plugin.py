@@ -96,9 +96,9 @@ class TaiwanPlugin(BaseCountryPlugin):
             "employer": 0.07,        # 雇主缴费7%
             "total": 0.09            # 总缴费比例9%
         }
-    
+
     def print_detailed_analysis(self, person: Person, salary_profile: SalaryProfile,
-                              economic_factors: EconomicFactors, pension_result, 
+                              economic_factors: EconomicFactors, pension_result,
                               currency_amount):
         """打印详细分析结果"""
         # 调用详细分析器
