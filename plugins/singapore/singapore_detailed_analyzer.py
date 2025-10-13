@@ -56,7 +56,7 @@ class SingaporeDetailedAnalyzer:
         )
 
         # 计算第一年数据
-        base = min(local_amount.amount, 102000)
+        base = min(local_amount.amount, 96000)  # OW年薪上限96,000
         employee_contrib = base * 0.20
         employer_contrib = base * 0.17
         total_contrib = base * 0.37
