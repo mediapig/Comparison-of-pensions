@@ -20,20 +20,15 @@
 pension_comparison/
 ├── core/                    # 核心模块
 │   ├── models.py           # 数据模型
-│   ├── base_calculator.py  # 抽象基类
 │   ├── pension_engine.py   # 计算引擎
 │   └── plugin_manager.py   # 插件管理器
 ├── plugins/                 # 国家插件
 │   ├── china/              # 中国退休金计算器
 │   ├── usa/                # 美国退休金计算器
 │   ├── singapore/          # 新加坡退休金计算器
-│   ├── canada/             # 加拿大退休金计算器
-│   ├── australia/          # 澳大利亚退休金计算器
-│   ├── hongkong/           # 香港退休金计算器
 │   ├── taiwan/             # 台湾退休金计算器
 │   ├── japan/              # 日本退休金计算器
-│   ├── uk/                 # 英国退休金计算器
-│   └── norway/             # 挪威退休金计算器
+│   └── uk/                 # 英国退休金计算器
 ├── utils/                   # 工具模块
 │   ├── inflation.py        # 通胀计算
 │   ├── salary_growth.py    # 工资增长模型

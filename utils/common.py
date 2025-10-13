@@ -6,10 +6,10 @@ Common utilities for pension analysis system
 
 from datetime import date
 from core.models import Person, SalaryProfile, EconomicFactors, Gender, EmploymentType
-from utils.currency_converter import CurrencyConverter
+from utils.smart_currency_converter import smart_converter
 
 # Initialize currency converter
-converter = CurrencyConverter()
+converter = smart_converter
 
 def create_standard_person() -> Person:
     """Create standard person for analysis"""
@@ -67,7 +67,7 @@ def get_country_currency(country_code: str) -> str:
     """Get currency code for a country"""
     currency_map = {
         'CN': 'CNY',
-        'US': 'USD', 
+        'US': 'USD',
         'TW': 'TWD',
         'HK': 'HKD',
         'SG': 'SGD',
