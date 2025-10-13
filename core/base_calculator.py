@@ -46,12 +46,6 @@ class BasePensionCalculator(ABC):
         """获取缴费比例"""
         return self.contribution_rates.get(employment_type, 0.08)
 
-    def calculate_inflation_adjusted_amount(self,
-                                         amount: float,
-                                         years: int,
-                                         inflation_rate: float) -> float:
-        """计算通胀调整后的金额"""
-        return amount / ((1 + inflation_rate) ** years)
 
     def calculate_future_value(self,
                              present_value: float,
