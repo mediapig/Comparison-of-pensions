@@ -99,9 +99,6 @@ class NorwayPlugin(BaseCountryPlugin):
             "total": 0.22            # 总缴费比例 22%
         }
 
-    def format_currency(self, amount: float) -> str:
-        """格式化货币显示"""
-        return f"kr {amount:,.0f}"
 
     def get_country_info(self) -> Dict[str, Any]:
         """获取国家信息"""
