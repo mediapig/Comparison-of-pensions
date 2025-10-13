@@ -56,8 +56,8 @@ class SingaporeCPFCalculator:
             'total_lifetime': total_lifetime,
             'total_employee': result['employee_contrib_total'],  # 员工部分
             'total_employer': total_lifetime - result['employee_contrib_total'],  # 雇主部分
-            'total_oa': total_lifetime * 0.23 / 0.37,  # OA部分
-            'total_sa': total_lifetime * 0.06 / 0.37,  # SA部分
+            'total_oa': total_lifetime * 0.62,  # OA部分
+            'total_sa': total_lifetime * 0.16,  # SA部分
             'total_ra': result['RA_at_65'],  # RA余额
             'total_ma': result['MA_remaining'],  # MA余额
             'final_balances': {
@@ -76,30 +76,36 @@ class SingaporeCPFCalculator:
         SA = 0
         MA = 0
 
-        # 导入BHS相关函数
-        from cpf_life_engine import bhs_prevailing, cohort_bhs_at_65
+        # BHS限额函数（简化版）
+        def get_bhs_limit(year):
+            base_bhs = 71500  # 2024年BHS
+            years_from_2024 = year - 2024
+            return base_bhs * (1.03 ** years_from_2024)
+
+        def get_cohort_bhs_at_65(start_year, start_age):
+            return get_bhs_limit(start_year + (65 - start_age))
 
         for year_offset in range(work_years):
             age = start_age + year_offset
             year = 2024 + year_offset  # 假设从2024年开始
 
-            base = min(income, 102000)   # 年薪上限
+            base = min(income, 96000)   # OW年薪上限96,000
             employee_contrib = base * 0.20  # 雇员缴费
             employer_contrib = base * 0.17   # 雇主缴费
             total_contrib = employee_contrib + employer_contrib  # 总缴费37%
 
             employee_contrib_total += employee_contrib
 
-            # 按比例分配 OA, SA, MA
-            add_OA = total_contrib * 0.23 / 0.37  # OA: 23%
-            add_SA = total_contrib * 0.06 / 0.37  # SA: 6%
-            add_MA = total_contrib * 0.08 / 0.37  # MA: 8%
+            # 按比例分配 OA, SA, MA (≤55岁: 62%/16%/22%)
+            add_OA = total_contrib * 0.62  # OA: 62%
+            add_SA = total_contrib * 0.16  # SA: 16%
+            add_MA = total_contrib * 0.22  # MA: 22%
 
             # MA超额处理：计算BHS上限
             if age < 65:
-                bhs_limit = bhs_prevailing(year)
+                bhs_limit = get_bhs_limit(year)
             else:
-                bhs_limit = cohort_bhs_at_65(2024, start_age)
+                bhs_limit = get_cohort_bhs_at_65(2024, start_age)
 
             # 计算MA可以入账的金额
             ma_room = max(0.0, bhs_limit - MA)
@@ -118,10 +124,25 @@ class SingaporeCPFCalculator:
             SA += add_SA
             MA += to_MA
 
-            # 年终计息
+            # 年终计息（基础利息）
             OA *= 1.025  # OA年息2.5%
             SA *= 1.04   # SA年息4%
             MA *= 1.04   # MA年息4%
+
+            # 首$60k额外+1%利息
+            total_balance = OA + SA + MA
+            if total_balance > 0:
+                extra_pool = min(total_balance, 60000) * 0.01
+                # 分摊到各账户（OA≤20k限制）
+                oa_eligible = min(OA, 20000)
+                sa_eligible = SA
+                ma_eligible = MA
+                total_eligible = oa_eligible + sa_eligible + ma_eligible
+
+                if total_eligible > 0:
+                    OA += extra_pool * (oa_eligible / total_eligible)
+                    SA += extra_pool * (sa_eligible / total_eligible)
+                    MA += extra_pool * (ma_eligible / total_eligible)
 
             # 检查MA是否因利息超过BHS上限
             if MA > bhs_limit + 1e-9:
@@ -166,7 +187,7 @@ class SingaporeCPFCalculator:
                 MA *= 1.04  # MA年息4%
 
                 # 检查MA是否因利息超过BHS上限
-                bhs_limit = cohort_bhs_at_65(2024, start_age)
+                bhs_limit = get_cohort_bhs_at_65(2024, start_age)
                 if MA > bhs_limit + 1e-9:
                     extra = MA - bhs_limit
                     MA = bhs_limit
@@ -209,16 +230,16 @@ class SingaporeCPFCalculator:
     def calculate_annual_contribution(self, monthly_salary: float, age: int) -> CPFContribution:
         """计算年度CPF缴费"""
         annual_salary = monthly_salary * 12
-        base = min(annual_salary, 102000)  # 年薪上限
+        base = min(annual_salary, 96000)  # OW年薪上限96,000
 
         # 计算总缴费
         total_contribution = base * 0.37
         total_contribution = min(total_contribution, 37740)  # 年缴费上限
 
-        # 分配比例
-        oa_contribution = total_contribution * 0.23 / 0.37
-        sa_contribution = total_contribution * 0.06 / 0.37
-        ma_contribution = total_contribution * 0.08 / 0.37
+        # 分配比例（≤55岁: 62%/16%/22%）
+        oa_contribution = total_contribution * 0.62
+        sa_contribution = total_contribution * 0.16
+        ma_contribution = total_contribution * 0.22
 
         # 员工和雇主缴费
         employee_contribution = total_contribution * 0.20 / 0.37
@@ -245,25 +266,25 @@ class SingaporeCPFCalculator:
     def get_account_allocation_rates(self, age: int) -> Dict[str, float]:
         """获取账户分配比例"""
         return {
-            'oa': 0.23,
-            'sa': 0.06,
-            'ma': 0.08
+            'oa': 0.62,
+            'sa': 0.16,
+            'ma': 0.22
         }
 
     def calculate_cpf_split(self, monthly_salary: float, age: int) -> CPFContribution:
         """计算指定年龄的CPF账户分配"""
         annual_salary = monthly_salary * 12
-        base = min(annual_salary, 102000)
+        base = min(annual_salary, 96000)
 
         # 计算缴费
         employee_contrib = base * 0.20
         employer_contrib = base * 0.17
         total_contrib = employee_contrib + employer_contrib
 
-        # 按比例分配
-        oa_contribution = total_contrib * 0.23 / 0.37
-        sa_contribution = total_contrib * 0.06 / 0.37
-        ma_contribution = total_contrib * 0.08 / 0.37
+        # 按比例分配（≤55岁: 62%/16%/22%）
+        oa_contribution = total_contrib * 0.62
+        sa_contribution = total_contrib * 0.16
+        ma_contribution = total_contrib * 0.22
 
         return CPFContribution(
             oa_contribution=oa_contribution,
