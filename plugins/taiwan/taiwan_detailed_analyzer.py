@@ -51,10 +51,10 @@ class TaiwanDetailedAnalyzer:
         monthly_salary = salary_profile.monthly_salary
         annual_salary = monthly_salary * 12
 
-        # 转换为人民币
-        monthly_salary_cny = self.smart_converter.convert_to_local(
-            CurrencyAmount(monthly_salary, "TWD", ""), "CNY"
-        ).amount
+        # 获取统一的汇率进行转换（确保报表内汇率一致）
+        rate_info = self.smart_converter.daily_cache.get_rate_info("TWD", "CNY")
+        twd_to_cny_rate = rate_info['exchange_rate']
+        monthly_salary_cny = monthly_salary * twd_to_cny_rate
         annual_salary_cny = monthly_salary_cny * 12
 
         # 计算劳保
@@ -66,8 +66,9 @@ class TaiwanDetailedAnalyzer:
         # 计算劳工退休金
         labor_pension = self._calculate_labor_pension(monthly_salary, work_years)
 
-        # 计算个人所得税
-        income_tax = self._calculate_income_tax(annual_salary)
+        # 计算个人所得税（扣除员工自提劳退）
+        employee_labor_pension_annual = labor_pension['employee_annual']
+        income_tax = self._calculate_income_tax(annual_salary, employee_labor_pension_annual)
 
         # 计算劳保年金
         labor_annuity = self._calculate_labor_annuity(monthly_salary, work_years)
@@ -86,9 +87,12 @@ class TaiwanDetailedAnalyzer:
 
         # 计算退休期分析
         retirement_years = 90 - retirement_age
-        monthly_pension_cny = self.smart_converter.convert_to_local(
-            CurrencyAmount(pension_result.monthly_pension, "TWD", ""), "CNY"
-        ).amount
+
+        # 使用统一的汇率进行转换（确保与年收入使用相同汇率）
+        monthly_pension_cny = pension_result.monthly_pension * twd_to_cny_rate
+
+        # 计算总缴费的人民币金额（使用相同的汇率）
+        total_employee_contribution_cny = total_employee_contribution * twd_to_cny_rate
 
         return {
             "基础信息": {
@@ -109,17 +113,21 @@ class TaiwanDetailedAnalyzer:
             },
             "劳工保险缴费": {
                 "费率": "12% (雇主70% + 员工20% + 政府10%)",
-                "投保薪资上限": "182,000 TWD/月",
-                "实际投保薪资": self._format_number(min(monthly_salary, 182000)),
+                "投保薪资上限": "45,800 TWD/月",
+                "实际投保薪资": self._format_number(min(monthly_salary, 45800)),
                 "年度缴费": {
                     "员工缴费": self._format_number(labor_insurance['employee_annual']),
                     "雇主缴费": self._format_number(labor_insurance['employer_annual']),
-                    "总缴费": self._format_number(labor_insurance['total_annual'])
+                    "政府缴费": self._format_number(labor_insurance['government_annual']),
+                    "总缴费(含政府)": self._format_number(labor_insurance['total_annual_with_gov']),
+                    "总缴费(不含政府)": self._format_number(labor_insurance['total_annual'])
                 },
                 "终身缴费": {
                     "员工缴费": self._format_number(labor_insurance['employee_total']),
                     "雇主缴费": self._format_number(labor_insurance['employer_total']),
-                    "总缴费": self._format_number(labor_insurance['total_lifetime'])
+                    "政府缴费": self._format_number(labor_insurance['government_total']),
+                    "总缴费(含政府)": self._format_number(labor_insurance['total_lifetime_with_gov']),
+                    "总缴费(不含政府)": self._format_number(labor_insurance['total_lifetime'])
                 }
             },
             "全民健康保险缴费": {
@@ -158,15 +166,18 @@ class TaiwanDetailedAnalyzer:
                     "免税额": self._format_number(income_tax['exemption']),
                     "标准扣除额": self._format_number(income_tax['standard_deduction']),
                     "薪资所得特别扣除额": self._format_number(income_tax['salary_deduction']),
+                    "员工自提劳退扣除": self._format_number(income_tax['labor_pension_deduction']),
                     "总扣除额": self._format_number(income_tax['total_deductions'])
                 },
-                "实际到手收入": self._format_number(income_tax['net_income'])
+                "实际到手收入": self._format_number(income_tax['net_income']),
+                "税务口径说明": "员工自提劳退已纳入税前扣除；劳保/健保个人缴费未纳入列举扣除"
             },
             "退休金计算": {
                 "劳保年金": {
                     "月领取金额": self._format_number(labor_annuity['monthly_pension']),
                     "年领取金额": self._format_number(labor_annuity['annual_pension']),
-                    "退休期总领取": self._format_number(labor_annuity['total_benefit'])
+                    "退休期总领取": self._format_number(labor_annuity['total_benefit']),
+                    "计算公式说明": "月平均投保薪资 × 年资 × 1.55% × 0.775(65岁退休调整系数)"
                 },
                 "劳工退休金": {
                     "月领取金额": self._format_number(labor_pension_monthly),
@@ -195,7 +206,8 @@ class TaiwanDetailedAnalyzer:
                     "雇主缴费": self._format_number(labor_pension['employer_total'])
                 },
                 "个人投资缴费": self._format_number(total_employee_contribution),
-                "个人投资占比": self._format_number((total_employee_contribution / (annual_salary * work_years)) * 100)
+                "个人投资占比": f"{self._format_number((total_employee_contribution / (annual_salary * work_years)) * 100)}%",
+                "个人投资占比说明": "个人(员工)缴费 / 税前收入 × 100%"
             },
             "退休期分析": {
                 "年龄范围": f"{retirement_age}-90岁",
@@ -244,40 +256,47 @@ class TaiwanDetailedAnalyzer:
             "人民币对比": {
                 "月退休金": self._format_number(monthly_pension_cny),
                 "年退休金": self._format_number(monthly_pension_cny * 12),
-                "总缴费": self._format_number(self.smart_converter.convert_to_local(
-                    CurrencyAmount(total_employee_contribution, "TWD", ""), "CNY"
-                ).amount),
-                "说明": "基于当前汇率转换，仅供参考"
+                "总缴费": self._format_number(total_employee_contribution_cny),
+                "说明": "基于统一汇率转换，确保报表内汇率一致"
             }
         }
 
     def _calculate_labor_insurance(self, monthly_salary: float, work_years: int) -> Dict[str, float]:
         """计算劳工保险"""
-        # 投保薪资上限
-        max_insured_salary = min(monthly_salary, 182000)
+        # 投保薪资上限（劳保上限45,800/月）
+        max_insured_salary = min(monthly_salary, 45800)
 
         # 费率
         total_rate = 0.12  # 12%
         employee_rate = 0.20  # 员工20%
         employer_rate = 0.70  # 雇主70%
+        government_rate = 0.10  # 政府10%
 
         # 年度缴费
         employee_annual = max_insured_salary * total_rate * employee_rate * 12
         employer_annual = max_insured_salary * total_rate * employer_rate * 12
+        government_annual = max_insured_salary * total_rate * government_rate * 12
         total_annual = employee_annual + employer_annual
+        total_annual_with_gov = total_annual + government_annual
 
         # 终身缴费
         employee_total = employee_annual * work_years
         employer_total = employer_annual * work_years
+        government_total = government_annual * work_years
         total_lifetime = employee_total + employer_total
+        total_lifetime_with_gov = total_lifetime + government_total
 
         return {
-            'employee_annual': employee_annual,
-            'employer_annual': employer_annual,
-            'total_annual': total_annual,
-            'employee_total': employee_total,
-            'employer_total': employer_total,
-            'total_lifetime': total_lifetime
+            'employee_annual': round(employee_annual, 2),
+            'employer_annual': round(employer_annual, 2),
+            'government_annual': round(government_annual, 2),
+            'total_annual': round(total_annual, 2),
+            'total_annual_with_gov': round(total_annual_with_gov, 2),
+            'employee_total': round(employee_total, 2),
+            'employer_total': round(employer_total, 2),
+            'government_total': round(government_total, 2),
+            'total_lifetime': round(total_lifetime, 2),
+            'total_lifetime_with_gov': round(total_lifetime_with_gov, 2)
         }
 
     def _calculate_health_insurance(self, monthly_salary: float, work_years: int) -> Dict[str, float]:
@@ -311,14 +330,17 @@ class TaiwanDetailedAnalyzer:
 
     def _calculate_labor_pension(self, monthly_salary: float, work_years: int) -> Dict[str, float]:
         """计算劳工退休金"""
+        # 提缴薪资上限（劳退上限150,000/月）
+        max_contribution_salary = min(monthly_salary, 150000)
+
         # 雇主缴费率
         employer_rate = 0.06  # 6%
         # 员工自愿缴费率（假设3%）
         employee_rate = 0.03  # 3%
 
         # 年度缴费
-        employee_annual = monthly_salary * employee_rate * 12
-        employer_annual = monthly_salary * employer_rate * 12
+        employee_annual = max_contribution_salary * employee_rate * 12
+        employer_annual = max_contribution_salary * employer_rate * 12
         total_annual = employee_annual + employer_annual
 
         # 终身缴费
@@ -335,14 +357,15 @@ class TaiwanDetailedAnalyzer:
             'total_lifetime': total_lifetime
         }
 
-    def _calculate_income_tax(self, annual_salary: float) -> Dict[str, float]:
+    def _calculate_income_tax(self, annual_salary: float, employee_labor_pension: float = 0) -> Dict[str, float]:
         """计算个人所得税"""
         # 扣除额（2024年标准）
         exemption = 92000  # 免税额
         standard_deduction = 120000  # 标准扣除额（单身）
         salary_deduction = 200000  # 薪资所得特别扣除额
+        labor_pension_deduction = employee_labor_pension  # 员工自提劳退扣除
 
-        total_deductions = exemption + standard_deduction + salary_deduction
+        total_deductions = exemption + standard_deduction + salary_deduction + labor_pension_deduction
         taxable_income = max(0, annual_salary - total_deductions)
 
         # 税率计算（简化版）
@@ -367,14 +390,15 @@ class TaiwanDetailedAnalyzer:
             'exemption': exemption,
             'standard_deduction': standard_deduction,
             'salary_deduction': salary_deduction,
+            'labor_pension_deduction': labor_pension_deduction,
             'total_deductions': total_deductions,
             'net_income': net_income
         }
 
     def _calculate_labor_annuity(self, monthly_salary: float, work_years: int) -> Dict[str, float]:
         """计算劳保年金（修正版）"""
-        # 投保薪资上限
-        insured_salary = min(monthly_salary, 182000)
+        # 投保薪资上限（劳保上限45,800/月）
+        insured_salary = min(monthly_salary, 45800)
 
         # 劳保年金计算（基于台湾实际公式）
         # 平均投保薪资 × 年资 × 1.55% × 0.775（65岁退休调整系数）
@@ -386,9 +410,9 @@ class TaiwanDetailedAnalyzer:
         total_benefit = annual_pension * retirement_years
 
         return {
-            'monthly_pension': monthly_pension,
-            'annual_pension': annual_pension,
-            'total_benefit': total_benefit
+            'monthly_pension': round(monthly_pension, 2),
+            'annual_pension': round(annual_pension, 2),
+            'total_benefit': round(total_benefit, 2)
         }
 
     def _calculate_labor_pension_monthly(self, total_contribution: float) -> float:
@@ -410,7 +434,7 @@ class TaiwanDetailedAnalyzer:
         else:
             monthly_pension = account_balance / total_months
 
-        return monthly_pension
+        return round(monthly_pension, 2)
 
     def _format_number(self, number: float) -> str:
         """格式化数字为字符串，保留2位小数"""
