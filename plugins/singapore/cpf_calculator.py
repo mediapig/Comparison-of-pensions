@@ -198,7 +198,7 @@ class SingaporeCPFCalculator:
                 year_at_55_plus_i = 2024 + (55 - start_age) + i
                 years_from_2024 = year_at_55_plus_i - 2024
                 bhs_limit = SingaporeCPFConstants.BHS_2024 * ((1 + SingaporeCPFConstants.ANNUAL_GROWTH_RATE) ** years_from_2024)
-                
+
                 if MA > bhs_limit + 1e-9:
                     extra = MA - bhs_limit
                     MA = bhs_limit
