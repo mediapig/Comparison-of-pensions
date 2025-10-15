@@ -6,6 +6,7 @@
 """
 
 from typing import Dict, Any
+from decimal import Decimal, ROUND_HALF_UP
 from core.models import Person, SalaryProfile, EconomicFactors, PensionResult
 from utils.smart_currency_converter import SmartCurrencyConverter, CurrencyAmount
 
@@ -54,8 +55,10 @@ class TaiwanDetailedAnalyzer:
         # 获取统一的汇率进行转换（确保报表内汇率一致）
         rate_info = self.smart_converter.daily_cache.get_rate_info("TWD", "CNY")
         twd_to_cny_rate = rate_info['exchange_rate']
-        monthly_salary_cny = monthly_salary * twd_to_cny_rate
-        annual_salary_cny = monthly_salary_cny * 12
+
+        # 使用Decimal进行精确转换
+        monthly_salary_cny = self._convert_with_decimal(monthly_salary, twd_to_cny_rate)
+        annual_salary_cny = self._convert_with_decimal(annual_salary, twd_to_cny_rate)
 
         # 计算劳保
         labor_insurance = self._calculate_labor_insurance(monthly_salary, work_years)
@@ -89,10 +92,18 @@ class TaiwanDetailedAnalyzer:
         retirement_years = 90 - retirement_age
 
         # 使用统一的汇率进行转换（确保与年收入使用相同汇率）
-        monthly_pension_cny = pension_result.monthly_pension * twd_to_cny_rate
+        # 使用我们计算的准确月退休金总额，而不是pension_result中的简化值
+        total_monthly_pension_twd = labor_annuity['monthly_pension'] + labor_pension_monthly
+        monthly_pension_cny = self._convert_with_decimal(total_monthly_pension_twd, twd_to_cny_rate)
 
         # 计算总缴费的人民币金额（使用相同的汇率）
-        total_employee_contribution_cny = total_employee_contribution * twd_to_cny_rate
+        total_employee_contribution_cny = self._convert_with_decimal(total_employee_contribution, twd_to_cny_rate)
+
+        # 汇率一致性检查
+        print(f"INFO: 汇率一致性检查 (TWD→CNY: {twd_to_cny_rate:.6f})")
+        self._check_exchange_rate_consistency(annual_salary, annual_salary_cny, twd_to_cny_rate, "年收入转换")
+        self._check_exchange_rate_consistency(total_monthly_pension_twd, monthly_pension_cny, twd_to_cny_rate, "月退休金转换")
+        self._check_exchange_rate_consistency(total_employee_contribution, total_employee_contribution_cny, twd_to_cny_rate, "总缴费转换")
 
         return {
             "基础信息": {
@@ -320,12 +331,12 @@ class TaiwanDetailedAnalyzer:
         total_lifetime = employee_total + employer_total
 
         return {
-            'employee_annual': employee_annual,
-            'employer_annual': employer_annual,
-            'total_annual': total_annual,
-            'employee_total': employee_total,
-            'employer_total': employer_total,
-            'total_lifetime': total_lifetime
+            'employee_annual': round(employee_annual, 2),
+            'employer_annual': round(employer_annual, 2),
+            'total_annual': round(total_annual, 2),
+            'employee_total': round(employee_total, 2),
+            'employer_total': round(employer_total, 2),
+            'total_lifetime': round(total_lifetime, 2)
         }
 
     def _calculate_labor_pension(self, monthly_salary: float, work_years: int) -> Dict[str, float]:
@@ -349,12 +360,12 @@ class TaiwanDetailedAnalyzer:
         total_lifetime = employee_total + employer_total
 
         return {
-            'employee_annual': employee_annual,
-            'employer_annual': employer_annual,
-            'total_annual': total_annual,
-            'employee_total': employee_total,
-            'employer_total': employer_total,
-            'total_lifetime': total_lifetime
+            'employee_annual': round(employee_annual, 2),
+            'employer_annual': round(employer_annual, 2),
+            'total_annual': round(total_annual, 2),
+            'employee_total': round(employee_total, 2),
+            'employer_total': round(employer_total, 2),
+            'total_lifetime': round(total_lifetime, 2)
         }
 
     def _calculate_income_tax(self, annual_salary: float, employee_labor_pension: float = 0) -> Dict[str, float]:
@@ -385,14 +396,14 @@ class TaiwanDetailedAnalyzer:
         net_income = annual_salary - total_tax
 
         return {
-            'taxable_income': taxable_income,
-            'total_tax': total_tax,
-            'exemption': exemption,
-            'standard_deduction': standard_deduction,
-            'salary_deduction': salary_deduction,
-            'labor_pension_deduction': labor_pension_deduction,
-            'total_deductions': total_deductions,
-            'net_income': net_income
+            'taxable_income': round(taxable_income, 2),
+            'total_tax': round(total_tax, 2),
+            'exemption': round(exemption, 2),
+            'standard_deduction': round(standard_deduction, 2),
+            'salary_deduction': round(salary_deduction, 2),
+            'labor_pension_deduction': round(labor_pension_deduction, 2),
+            'total_deductions': round(total_deductions, 2),
+            'net_income': round(net_income, 2)
         }
 
     def _calculate_labor_annuity(self, monthly_salary: float, work_years: int) -> Dict[str, float]:
@@ -439,6 +450,50 @@ class TaiwanDetailedAnalyzer:
     def _format_number(self, number: float) -> str:
         """格式化数字为字符串，保留2位小数"""
         return f"{number:,.2f}"
+
+    def _check_exchange_rate_consistency(self, twd_amount: float, cny_amount: float,
+                                       expected_rate: float, description: str) -> bool:
+        """
+        检查汇率一致性
+
+        Args:
+            twd_amount: TWD金额
+            cny_amount: CNY金额
+            expected_rate: 期望汇率
+            description: 描述信息
+
+        Returns:
+            是否一致
+        """
+        if twd_amount == 0:
+            return True
+
+        actual_rate = cny_amount / twd_amount
+        tolerance = 0.005  # 0.5%误差容忍度
+
+        if abs(actual_rate - expected_rate) / expected_rate > tolerance:
+            print(f"WARNING: {description} 汇率不一致!")
+            print(f"  期望汇率: {expected_rate:.6f}")
+            print(f"  实际汇率: {actual_rate:.6f}")
+            print(f"  误差: {abs(actual_rate - expected_rate) / expected_rate * 100:.2f}%")
+            return False
+        return True
+
+    def _convert_with_decimal(self, amount: float, rate: float) -> float:
+        """
+        使用Decimal进行精确的汇率转换
+
+        Args:
+            amount: 原始金额
+            rate: 汇率
+
+        Returns:
+            转换后的金额（保留2位小数）
+        """
+        decimal_amount = Decimal(str(amount))
+        decimal_rate = Decimal(str(rate))
+        result = decimal_amount * decimal_rate
+        return float(result.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
 
     def _format_decimals(self, obj):
         """递归格式化数字，保留2位小数"""
