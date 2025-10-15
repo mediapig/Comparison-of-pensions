@@ -1,3 +1,395 @@
+# Pension Comparison System
+
+A Python-based pluginized pension calculation and comparison system that supports pension calculations for multiple countries, considering complex factors such as inflation, salary growth, and investment returns. **Provides comprehensive analysis functionality including complete analysis of pensions, social security, individual taxes, and take-home pay.**
+
+## 🚀 Key Features
+
+- **Plugin Architecture**: Supports pension calculators for different countries
+- **Smart Currency Conversion**: Supports multiple currency inputs and real-time exchange rate conversion
+- **Comprehensive Analysis**: Complete analysis of pensions, social security, individual taxes, and take-home pay
+- **Complex Factor Consideration**: Inflation, salary growth, investment return rates, etc.
+- **Multi-dimensional Comparison**: Monthly pension, total contributions, ROI, payback age, etc.
+- **Multi-country Comparison**: Supports simultaneous comparison of pension systems across multiple countries
+- **Detailed Reports**: Generates complete pension analysis reports
+- **Tax Calculation**: Individual income tax calculation for various countries, including social security deductions
+- **Take-home Pay**: Actual take-home amount after deducting social security and taxes
+- **Real-time Exchange Rates**: Supports multiple exchange rate APIs with automatic caching and updates
+- **Precise Calculation**: Uses Decimal type to ensure financial calculation precision
+
+## 🏗️ System Architecture
+
+```
+Comparison-of-pensions/
+├── core/                           # Core modules
+│   ├── models.py                  # Data models
+│   ├── base_plugin.py             # Base plugin class
+│   ├── plugin_manager.py          # Plugin manager
+│   ├── analysis_runner.py         # Analysis runner
+│   └── exceptions.py              # Exception handling
+├── plugins/                        # Country plugins
+│   ├── china/                     # China pension calculator
+│   │   ├── plugin.py              # Main plugin
+│   │   ├── config.py              # Configuration
+│   │   ├── china_detailed_analyzer.py # Detailed analyzer
+│   │   ├── china_optimized_calculator.py # Optimized calculator
+│   │   ├── china_social_security_calculator.py # Social security calculator
+│   │   └── china_tax_calculator.py # Tax calculator
+│   ├── usa/                       # USA pension calculator
+│   │   ├── plugin.py              # Main plugin
+│   │   ├── config.py              # Configuration (year-based management)
+│   │   ├── usa_detailed_analyzer.py # Detailed analyzer
+│   │   ├── pension_calculator.py  # Pension calculator
+│   │   ├── tax_calculator.py      # Tax calculator
+│   │   ├── usa_401k_calculator.py # 401k calculator
+│   │   └── usa_401k_params.py     # 401k parameters
+│   ├── singapore/                 # Singapore pension calculator
+│   │   ├── plugin.py              # Main plugin
+│   │   ├── constants.py           # Constants configuration
+│   │   ├── singapore_detailed_analyzer.py # Detailed analyzer
+│   │   ├── cpf_calculator.py      # CPF calculator
+│   │   └── singapore_tax_calculator_enhanced.py # Tax calculator
+│   ├── taiwan/                    # Taiwan pension calculator
+│   │   ├── plugin.py              # Main plugin
+│   │   ├── config.py              # Configuration
+│   │   ├── taiwan_detailed_analyzer.py # Detailed analyzer
+│   │   ├── pension_calculator.py  # Pension calculator
+│   │   └── tax_calculator.py      # Tax calculator
+│   └── japan/                     # Japan pension calculator
+│       ├── plugin.py              # Main plugin
+│       ├── config.py              # Configuration
+│       ├── japan_detailed_analyzer.py # Detailed analyzer
+│       ├── japan_corrected_calculator.py # Corrected calculator
+│       └── tax_calculator.py      # Tax calculator
+├── utils/                          # Utility modules
+│   ├── smart_currency_converter.py # Smart currency converter
+│   ├── daily_exchange_rate_cache.py # Exchange rate cache
+│   ├── irr_calculator.py          # IRR calculator
+│   ├── annual_analyzer.py         # Annual analyzer
+│   ├── inflation.py               # Inflation calculation
+│   ├── investment.py              # Investment return calculation
+│   ├── tax_manager.py             # Tax management
+│   ├── common.py                  # Common utilities
+│   └── json_analyzer.py           # JSON analyzer
+├── docs/                           # Documentation
+│   ├── coding_standards.md        # Coding standards
+│   └── performance_optimization_guide.md # Performance optimization guide
+├── tests/                          # Tests
+│   └── performance_test.py        # Performance tests
+├── cache/                          # Cache directory
+│   └── exchange_rates.json        # Exchange rate cache
+├── main.py                         # Main program entry point
+└── requirements.txt                # Dependencies file
+```
+
+## 📦 Installation
+
+### Basic Installation
+```bash
+pip install -r requirements.txt
+```
+
+## 🚀 Quick Start
+
+### 1. Command Line Usage (Recommended)
+
+```bash
+# Analyze single country
+python3 main.py cny30000 --CN        # China, 30,000 CNY
+python3 main.py usd50000 --US        # USA, 50,000 USD
+python3 main.py sgd50000 --SG        # Singapore, 50,000 SGD
+python3 main.py twd2000000 --TW      # Taiwan, 2,000,000 TWD
+python3 main.py jpy5000000 --JP      # Japan, 5,000,000 JPY
+
+# Smart currency input support
+python3 main.py cny10000 --CN        # Currency code + amount
+python3 main.py 10000CNY --CN        # Amount + currency code
+python3 main.py ¥10000 --CN          # Currency symbol + amount
+python3 main.py 10000 --CN           # Pure number (defaults to CNY)
+
+# Compare multiple countries
+python3 main.py cny30000 --CN,US,SG  # Compare China, USA, Singapore
+python3 main.py usd100000 --SG,CN    # Compare Singapore, China
+python3 main.py usd100000 --CN,US,SG,TW,JP  # Compare 5 countries
+
+# System management commands
+python3 main.py --list-plugins       # List all plugins
+python3 main.py --test-plugins       # Test plugin functionality
+python3 main.py --supported-currencies # Show supported currencies
+```
+
+### 2. Programmatic Usage
+
+```python
+from core.plugin_manager import plugin_manager
+from core.models import Person, SalaryProfile, EconomicFactors
+from utils.smart_currency_converter import SmartCurrencyConverter
+from datetime import date
+
+# Create calculation engine
+converter = SmartCurrencyConverter()
+currency_amount = converter.parse_amount("cny30000")
+
+# Get China plugin
+china_plugin = plugin_manager.get_plugin("CN")
+
+# Create test data
+person = china_plugin.create_person(start_age=30)
+salary_profile = SalaryProfile(
+    monthly_salary=currency_amount.amount / 12,
+    annual_growth_rate=0.0,
+    contribution_start_age=30
+)
+economic_factors = EconomicFactors(
+    inflation_rate=0.02,
+    investment_return_rate=0.05,
+    social_security_return_rate=0.03
+)
+
+# Calculate pension
+pension_result = china_plugin.calculate_pension(person, salary_profile, economic_factors)
+print(f"Monthly pension: {china_plugin.format_currency(pension_result.monthly_pension)}")
+```
+
+## 🌍 Supported Countries and Regions
+
+### 📊 Complete Comparison Table
+
+| Country/Region | Code | Pension System | Social Security System | Tax Features | Retirement Age | Status |
+|----------------|------|----------------|------------------------|--------------|----------------|--------|
+| **China** | CN | Basic pension + individual account | Social security (pension + medical + unemployment) | Special additional deductions | M60/F55 | ✅ Complete |
+| **Singapore** | SG | CPF Central Provident Fund | CPF (OA+SA+MA+RA) | Progressive tax rate, CPF deduction | 65 | ✅ Complete |
+| **USA** | US | Social Security + 401k | SS + Medicare | Standard deduction, SS/Medicare deduction | 67 | ✅ Complete |
+| **Taiwan** | TW | Labor insurance + labor pension | Labor insurance + health insurance | Basic exemption, labor/health insurance deduction | 65 | ✅ Complete |
+| **Japan** | JP | Employee pension + national pension | Employee pension + health insurance | Basic deduction, employee pension/health insurance deduction | 65 | ✅ Complete |
+| **UK** | UK | State pension + workplace pension | National Insurance + pension | Personal allowance, pension deduction | 68 | ✅ Complete |
+
+## 🔍 Comprehensive Analysis Features
+
+### 🌍 Multi-country Comparison Feature
+
+The system supports multi-country pension comparison analysis, allowing simultaneous comparison of pension systems across multiple countries:
+
+#### Comparison Content
+- **Monthly Pension**: Monthly pension amounts for each country (converted to CNY for unified display)
+- **Total Contributions**: Total contribution amounts during working years (converted to CNY for unified display)
+- **ROI**: Return on Investment
+- **Retirement Age**: Legal retirement age for each country
+
+#### Usage Examples
+```bash
+# Basic comparison
+python3 main.py cny30000 --CN,US,SG
+
+# High-income comparison
+python3 main.py usd100000 --SG,CN
+
+# Multi-country comprehensive comparison
+python3 main.py usd100000 --CN,US,SG,TW,JP
+```
+
+#### Output Example
+```
+📊 Pension Comparison (CNY):
+Country      Monthly Pension    Total Contributions  ROI     Retirement Age
+------------------------------------------------------------
+🇸🇬Singapore  ¥17,755.08      ¥5,806,153.85      4.4%     65岁
+🇨🇳China     ¥12,222.89      ¥7,164,419.79      1.4%     60岁
+```
+
+### 📋 Single Country Analysis Content
+
+Each country's comprehensive analyzer includes the following three parts:
+
+#### 1. 🏦 Pension Analysis
+- Monthly pension amount
+- Total contribution amount
+- Return on Investment (ROI)
+- Internal Rate of Return (IRR)
+- Payback age
+- Contribution rate information
+
+#### 2. 💰 Income Analysis
+- Social security contribution details (employee + employer)
+- Individual income tax calculation
+- Actual take-home amount
+- Effective tax rate
+- Deduction item details
+
+#### 3. 📊 Lifetime Summary
+- Total income during working years
+- Total social security contributions
+- Total individual taxes
+- Total net income
+- Various ratio analyses
+- Monthly averages
+
+### 💡 Use Cases
+
+- **Personal Financial Planning**: Understand actual take-home income in different countries
+- **Immigration Decision Reference**: Compare tax burdens and social security systems across countries
+- **Enterprise Internationalization**: Understand labor costs in different countries
+- **Academic Research**: Analyze differences in pension and tax policies across countries
+
+## 💱 Smart Currency Conversion
+
+### Supported Currencies
+
+The system supports 18 major currencies, including:
+
+- **Asian Currencies**: CNY(Chinese Yuan), SGD(Singapore Dollar), HKD(Hong Kong Dollar), TWD(Taiwan Dollar), JPY(Japanese Yen), KRW(South Korean Won)
+- **American Currencies**: USD(US Dollar), CAD(Canadian Dollar), AUD(Australian Dollar), BRL(Brazilian Real)
+- **European Currencies**: EUR(Euro), GBP(British Pound), NOK(Norwegian Krone), SEK(Swedish Krona), DKK(Danish Krone), CHF(Swiss Franc)
+- **Other Currencies**: INR(Indian Rupee), RUB(Russian Ruble)
+
+### Real-time Exchange Rates
+
+- Supports multiple exchange rate APIs (ExchangeRate-API, ExchangeRatesAPI, etc.)
+- Automatic caching of exchange rate data to avoid frequent API calls
+- Smart fallback mechanism, uses cached data when API is unavailable
+- Supports multiple input methods: currency symbols, codes, aliases
+- Unified exchange rate conversion ensuring consistency within reports
+
+## 🧮 Core Concepts
+
+### 1. Inflation Calculation
+- Inflation-adjusted amounts
+- Real return rate calculation
+- Purchasing power loss analysis
+
+### 2. Salary Growth Models
+- Linear growth
+- Compound growth
+- Phased growth
+- Career peak models
+
+### 3. Investment Return Calculation
+- Future value and present value
+- Regular contribution calculation
+- Internal Rate of Return (IRR) calculation
+- Payback age analysis
+
+### 4. Tax Calculation
+- Individual tax rate tables for various countries
+- Social security contribution calculation
+- Pre-tax deductions
+- Effective tax rate calculation
+
+## 🔧 Extending to New Countries
+
+To add support for new countries, you need to:
+
+1. Create a new country directory under `plugins/`
+2. Create a `plugin.py` file inheriting from `BaseCountryPlugin`
+3. Implement necessary calculation methods:
+   - `calculate_pension()` - Pension calculation
+   - `calculate_tax()` - Tax calculation
+   - `calculate_social_security()` - Social security calculation
+   - `get_retirement_age()` - Retirement age
+4. Create configuration file `config.py`
+5. Optional: Create detailed analyzer `*_analyzer.py`
+
+Example:
+
+```python
+class FrancePlugin(BaseCountryPlugin):
+    COUNTRY_CODE = "FR"
+    COUNTRY_NAME = "France"
+    CURRENCY = "EUR"
+
+    def calculate_pension(self, person, salary_profile, economic_factors):
+        # Implement French pension calculation logic
+        pass
+
+    def calculate_tax(self, annual_income):
+        # Implement French tax calculation logic
+        pass
+```
+
+## 🎯 Running Examples
+
+### View Help Information
+```bash
+python3 main.py
+```
+
+### Analyze China Situation
+```bash
+python3 main.py cny30000 --CN
+```
+
+### Compare Multiple Countries
+```bash
+# Basic comparison
+python3 main.py cny30000 --CN,US,SG
+
+# High-income comparison
+python3 main.py usd100000 --SG,CN
+
+# Multi-country comprehensive comparison
+python3 main.py usd100000 --CN,US,SG,TW,JP
+```
+
+### Analyze High-income Situations
+```bash
+python3 main.py usd500000 --US    # USA 500,000 USD
+python3 main.py sgd500000 --SG    # Singapore 500,000 SGD
+```
+
+## ⚠️ Important Notes
+
+1. **Data Accuracy**: This system is primarily for educational and research purposes. Please refer to official policies for actual pension calculations
+2. **Parameter Settings**: Parameters such as inflation rate and investment return rate need to be adjusted according to actual situations
+3. **Currency Units**: Different countries use different currencies, the system automatically converts and displays
+4. **Policy Changes**: Pension and tax policies may change, requiring timely updates to calculation logic
+5. **Exchange Rate Fluctuations**: Currency conversion uses real-time exchange rates, but rates will fluctuate
+6. **API Limitations**: Exchange rate APIs may have call limitations, please use reasonably
+7. **Calculation Precision**: Uses Decimal type to ensure financial calculation precision and avoid floating-point errors
+
+## 🤝 Contributing
+
+Welcome to submit Issues and Pull Requests to improve this system!
+
+## 📄 License
+
+MIT License
+
+## 🔄 Changelog
+
+### v4.0.0 (2024-12)
+- **Refactored** Singapore CPF calculator, implemented complete CPF LIFE calculation
+- **Optimized** USA plugin, fixed Social Security retirement period total benefit calculation
+- **Added** Year-based table management, supporting 2023-2025 annual limits
+- **Fixed** Additional Medicare Tax calculation
+- **Optimized** 401(k) limits alignment with years
+- **Improved** Taxable income calculation precision
+- **Unified** Exchange rate conversion consistency
+- **Fixed** Multi-country comparison functionality, resolved division by zero errors and annual income calculation errors
+- **Optimized** Multi-country comparison output, focused on pension comparison analysis
+- **Cleaned** Removed redundant code and files
+
+### v3.0.0 (2024)
+- **Added** Smart currency conversion functionality
+- **Added** Real-time exchange rate API integration
+- **Added** Annual detailed analysis functionality
+- **Optimized** Plugin management system
+- **Optimized** Output format and user experience
+- **Fixed** Various calculation errors and display issues
+
+### v2.0.0 (2024)
+- **Added** Comprehensive analysis functionality
+- **Added** Individual tax calculation for various countries
+- **Added** Social security contribution calculation
+- **Added** Take-home pay analysis
+- **Added** Lifetime summary
+- **Added** UK, Japan, Taiwan, Hong Kong comprehensive analyzers
+
+### v1.0.0 (2023)
+- Basic pension calculation functionality
+- Support for China, USA, Singapore and other countries
+- Plugin architecture design
+
+---
+
 # 退休金对比系统
 
 一个基于Python的插件化退休金计算和对比系统，支持多个国家的退休金计算，考虑通胀、工资增长、投资回报等复杂因素。**提供详细的综合分析功能，包含养老金、社保、个税和实际到手金额的完整分析。**
@@ -9,6 +401,7 @@
 - **综合分析**：养老金、社保、个税、实际到手金额的完整分析
 - **复杂因素考虑**：通胀、工资增长、投资回报率等
 - **多维度对比**：月退休金、总缴费、ROI、回本年龄等
+- **多国对比**：支持同时对比多个国家的退休金体系
 - **详细报告**：生成完整的退休金分析报告
 - **个税计算**：各国个人所得税计算，包含社保扣除
 - **实际到手**：扣除社保和个税后的实际到手金额
@@ -107,6 +500,8 @@ python3 main.py 10000 --CN           # 纯数字(默认为人民币)
 
 # 对比多个国家
 python3 main.py cny30000 --CN,US,SG  # 对比中国、美国、新加坡
+python3 main.py usd100000 --SG,CN    # 对比新加坡、中国
+python3 main.py usd100000 --CN,US,SG,TW,JP  # 对比5个国家
 
 # 系统管理命令
 python3 main.py --list-plugins       # 列出所有插件
@@ -162,7 +557,38 @@ print(f"月退休金: {china_plugin.format_currency(pension_result.monthly_pensi
 
 ## 🔍 综合分析功能
 
-### 📋 分析内容
+### 🌍 多国对比功能
+
+系统支持多国退休金对比分析，可以同时对比多个国家的退休金体系：
+
+#### 对比内容
+- **月退休金**：各国月退休金金额（统一转换为人民币显示）
+- **总缴费**：工作期间总缴费金额（统一转换为人民币显示）
+- **ROI**：投资回报率（Return on Investment）
+- **退休年龄**：各国法定退休年龄
+
+#### 使用示例
+```bash
+# 基础对比
+python3 main.py cny30000 --CN,US,SG
+
+# 高收入对比
+python3 main.py usd100000 --SG,CN
+
+# 多国全面对比
+python3 main.py usd100000 --CN,US,SG,TW,JP
+```
+
+#### 输出示例
+```
+📊 退休金对比 (人民币):
+国家         月退休金            总缴费             ROI      退休年龄
+------------------------------------------------------------
+🇸🇬新加坡      ¥17,755.08      ¥5,806,153.85      4.4%     65岁
+🇨🇳中国       ¥12,222.89      ¥7,164,419.79      1.4%     60岁
+```
+
+### 📋 单国分析内容
 
 每个国家的综合分析器都包含以下三个部分：
 
@@ -285,7 +711,14 @@ python3 main.py cny30000 --CN
 
 ### 对比多个国家
 ```bash
+# 基础对比
 python3 main.py cny30000 --CN,US,SG
+
+# 高收入对比
+python3 main.py usd100000 --SG,CN
+
+# 多国全面对比
+python3 main.py usd100000 --CN,US,SG,TW,JP
 ```
 
 ### 分析高收入情况
@@ -322,6 +755,8 @@ MIT License
 - **优化** 401(k)限额与年份对齐
 - **改进** 应税所得计算精度
 - **统一** 汇率转换一致性
+- **修复** 多国对比功能，解决除零错误和年收入计算错误
+- **优化** 多国对比输出，专注于退休金对比分析
 - **清理** 删除冗余代码和文件
 
 ### v3.0.0 (2024)
