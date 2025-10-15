@@ -26,7 +26,7 @@ class JapanTaxCalculator:
             {'min': 40000000, 'max': float('inf'), 'rate': 0.45}
         ]
 
-    def calculate_income_tax(self, annual_income: float, deductions: Dict = None) -> Dict:
+    def calculate_income_tax(self, annual_income: float, deductions: Dict = None, social_security_contribution: float = 0) -> Dict:
         """计算日本个人所得税"""
         if deductions is None:
             deductions = {}
@@ -37,11 +37,11 @@ class JapanTaxCalculator:
         # 2. 基础控除（基礎控除）
         basic_deduction = self._calculate_basic_deduction(annual_income)
 
-        # 3. 厚生年金扣除（社保缴费扣除）
-        pension_deduction = min(annual_income * 0.09175, 1080000)  # 最大108万日元
+        # 3. 社会保险料控除（年金+健保+雇保合计）
+        social_security_deduction = social_security_contribution
 
         # 总扣除额
-        total_deductions = salary_deduction + basic_deduction + pension_deduction + sum(deductions.values())
+        total_deductions = salary_deduction + basic_deduction + social_security_deduction + sum(deductions.values())
 
         # 应纳税所得额
         taxable_income = max(0, annual_income - total_deductions)
@@ -53,7 +53,7 @@ class JapanTaxCalculator:
                 'total_deductions': total_deductions,
                 'breakdown': {
                     'basic_deduction': basic_deduction,
-                    'pension_deduction': pension_deduction,
+                    'social_security_deduction': social_security_deduction,
                     'other_deductions': sum(deductions.values()),
                     'tax_brackets': []
                 }
@@ -86,7 +86,7 @@ class JapanTaxCalculator:
             'breakdown': {
                 'salary_deduction': salary_deduction,
                 'basic_deduction': basic_deduction,
-                'pension_deduction': pension_deduction,
+                'social_security_deduction': social_security_deduction,
                 'other_deductions': sum(deductions.values()),
                 'tax_brackets': bracket_details
             }

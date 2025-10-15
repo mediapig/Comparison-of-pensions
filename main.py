@@ -73,8 +73,8 @@ class SmartPensionComparisonApp:
     def get_country_flag(self, country_code: str) -> str:
         """获取国家国旗emoji"""
         country_flags = {
-            'CN': '🇨🇳', 'US': '🇺🇸', 'SG': '🇸🇬', 'CA': '🍁', 'AU': '🇦🇺',
-            'HK': '🇭🇰', 'TW': '🇹🇼', 'JP': '🇯🇵', 'UK': '🇬🇧', 'NO': '🇳🇴',
+            'CN': '🇨🇳', 'US': '🇺🇸', 'SG': '🇸🇬',
+            'TW': '🇹🇼', 'JP': '🇯🇵', 'UK': '🇬🇧',
         }
         return country_flags.get(country_code.upper(), '🏳️')
 
@@ -82,19 +82,19 @@ class SmartPensionComparisonApp:
         """显示支持的货币"""
         print("=== 支持的货币 ===")
         supported_currencies = self.smart_converter.get_supported_currencies()
-        
+
         for currency_code, info in supported_currencies.items():
             print(f"{currency_code}: {info['name']} ({info['symbol']})")
             print(f"  别名: {info['aliases']}")
             print()
-        
+
         # 显示实时汇率状态
         print("=== 实时汇率状态 ===")
         connection_status = self.smart_converter.test_realtime_connection()
-        
+
         # 按优先级排序显示
         sorted_apis = sorted(connection_status.items(), key=lambda x: x[1].get('priority', 999))
-        
+
         for api_name, api_info in sorted_apis:
             status = api_info['status']
             free = api_info.get('free', True)
@@ -102,7 +102,7 @@ class SmartPensionComparisonApp:
             response_time = api_info.get('response_time', 0)
             currencies_count = api_info.get('currencies_count', 0)
             error = api_info.get('error', '')
-            
+
             # 状态图标
             if status == 'success':
                 status_icon = "✅"
@@ -125,14 +125,14 @@ class SmartPensionComparisonApp:
             else:
                 status_icon = "❌"
                 status_text = f"失败 ({error})"
-            
+
             free_text = "免费" if free else "付费"
             print(f"{status_icon} {api_name} ({free_text}, 优先级{priority}): {status_text}")
-        
+
         # 显示主要货币的实时汇率
         print("\n=== 主要货币实时汇率 (相对于人民币) ===")
         main_currencies = ['USD', 'EUR', 'GBP', 'JPY', 'SGD', 'HKD', 'NOK']
-        
+
         for currency in main_currencies:
             try:
                 rate_info = self.smart_converter.get_realtime_rate_info('CNY', currency)
@@ -142,7 +142,7 @@ class SmartPensionComparisonApp:
                     print(f"{currency}: 汇率获取失败")
             except Exception as e:
                 print(f"{currency}: 汇率获取失败 - {e}")
-        
+
         print(f"\n汇率更新时间: {rate_info.get('last_update', 'N/A')}")
 
     def list_plugins(self):
@@ -201,7 +201,7 @@ class SmartPensionComparisonApp:
 
         # 转换为目标国家的本地货币
         local_amount = self.smart_converter.convert_to_local(currency_amount, plugin.CURRENCY)
-        
+
         flag = self.get_country_flag(country_code)
         print(f"=== {flag} {plugin.COUNTRY_NAME} ({country_code}) 分析 ===")
         print(f"输入金额: {self.smart_converter.format_amount(currency_amount)}")
@@ -209,7 +209,7 @@ class SmartPensionComparisonApp:
 
         # 让插件自己创建Person对象，因为每个国家的退休年龄不同
         person = plugin.create_person(start_age=30)
-        
+
         salary_profile = SalaryProfile(
             monthly_salary=local_amount.amount / 12,  # 年薪转月薪
             annual_growth_rate=0.0,
@@ -225,7 +225,7 @@ class SmartPensionComparisonApp:
         try:
             # 计算退休金
             pension_result = plugin.calculate_pension(person, salary_profile, economic_factors)
-            
+
             # 使用插件的详细分析方法
             if hasattr(plugin, 'print_detailed_analysis'):
                 plugin.print_detailed_analysis(person, salary_profile, economic_factors, pension_result, local_amount)
@@ -321,11 +321,11 @@ class SmartPensionComparisonApp:
 
             # 转换为人民币显示
             monthly_pension_cny = self.smart_converter.convert_to_local(
-                CurrencyAmount(pension_result.monthly_pension, plugin.CURRENCY, ""), 
+                CurrencyAmount(pension_result.monthly_pension, plugin.CURRENCY, ""),
                 'CNY'
             )
             total_contribution_cny = self.smart_converter.convert_to_local(
-                CurrencyAmount(pension_result.total_contribution, plugin.CURRENCY, ""), 
+                CurrencyAmount(pension_result.total_contribution, plugin.CURRENCY, ""),
                 'CNY'
             )
 
@@ -342,14 +342,14 @@ class SmartPensionComparisonApp:
 
             # 转换为人民币显示
             total_tax_cny = self.smart_converter.convert_to_local(
-                CurrencyAmount(tax_result.get('total_tax', 0), plugin.CURRENCY, ""), 
+                CurrencyAmount(tax_result.get('total_tax', 0), plugin.CURRENCY, ""),
                 'CNY'
             )
             effective_rate = tax_result.get('effective_rate', 0)
 
             print(f"{flag}{plugin.COUNTRY_NAME:<8} {self.smart_converter.format_amount(total_tax_cny):<15} {effective_rate:>8.1f}%")
 
-    def analyze_annual_detail(self, country_code: str, currency_amount: CurrencyAmount, 
+    def analyze_annual_detail(self, country_code: str, currency_amount: CurrencyAmount,
                              start_age: int = 30, retirement_age: Optional[int] = None):
         """年度详细分析"""
         try:
@@ -363,7 +363,7 @@ class SmartPensionComparisonApp:
 def main():
     """主函数"""
     app = SmartPensionComparisonApp()
-    
+
     # 手动解析参数以支持智能货币输入
     if len(sys.argv) < 2:
         app.show_help()

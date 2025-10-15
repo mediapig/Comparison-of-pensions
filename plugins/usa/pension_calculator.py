@@ -20,7 +20,8 @@ class USAPensionCalculator:
     def calculate_pension(self,
                          person: Person,
                          salary_profile: SalaryProfile,
-                         economic_factors: EconomicFactors) -> PensionResult:
+                         economic_factors: EconomicFactors,
+                         retirement_years: int = 23) -> PensionResult:
         """计算美国退休金 - 简化版"""
         monthly_salary = salary_profile.monthly_salary
         work_years = person.work_years if person.work_years > 0 else 35
@@ -29,7 +30,7 @@ class USAPensionCalculator:
         ss_rate = 0.062 * 2  # 雇员+雇主各6.2%
 
         # 缴费基数上限（2024年）
-        max_taxable_earnings = 160200 / 12  # 月度上限
+        max_taxable_earnings = 168600 / 12  # 月度上限
         contribution_base = min(monthly_salary, max_taxable_earnings)
 
         # 计算累积缴费
@@ -52,7 +53,7 @@ class USAPensionCalculator:
         monthly_benefit = contribution_base * replacement_rate
 
         total_contribution = annual_contribution * work_years
-        retirement_years = 20  # 假设领取20年
+        # retirement_years 从参数传入，不再硬编码
         total_benefit = monthly_benefit * 12 * retirement_years
 
         roi = ((total_benefit / total_contribution) - 1) * 100 if total_contribution > 0 else 0
@@ -79,7 +80,9 @@ class USAPensionCalculator:
                 'ss_rate': ss_rate,
                 'work_years': work_years,
                 'retirement_age': retirement_age,
-                'max_taxable_earnings': max_taxable_earnings
+                'max_taxable_earnings': max_taxable_earnings,
+                'social_security_pension': monthly_benefit,
+                'total_ss_benefit': total_benefit
             }
         )
 

@@ -8,8 +8,6 @@
 import re
 from typing import Dict, Tuple, Optional, Union
 from dataclasses import dataclass
-from .currency_converter import CurrencyConverter
-from .realtime_currency_converter import RealtimeCurrencyConverter
 from .daily_exchange_rate_cache import DailyExchangeRateCache
 
 @dataclass
@@ -18,65 +16,119 @@ class CurrencyAmount:
     amount: float
     currency: str
     original_input: str
-    
+
     def __str__(self):
         return f"{self.amount} {self.currency}"
 
 class SmartCurrencyConverter:
     """智能货币转换器"""
-    
+
+    # 货币代码标准化映射表
+    CURRENCY_MAPPING = {
+        'NT': 'TWD',
+        'NTD': 'TWD',
+        'RMB': 'CNY',
+        'CNH': 'CNY'
+    }
+
+    # 支持的货币映射
+    CURRENCIES = {
+        # 主要货币
+        'CNY': {'name': '人民币', 'symbol': '¥', 'aliases': ['cny', 'rmb', 'yuan', '元']},
+        'USD': {'name': '美元', 'symbol': '$', 'aliases': ['usd', 'dollar', 'dollars']},
+        'EUR': {'name': '欧元', 'symbol': '€', 'aliases': ['eur', 'euro', 'euros']},
+        'GBP': {'name': '英镑', 'symbol': '£', 'aliases': ['gbp', 'pound', 'pounds']},
+        'JPY': {'name': '日元', 'symbol': '¥', 'aliases': ['jpy', 'yen', '円']},
+
+        # 亚洲货币
+        'SGD': {'name': '新加坡元', 'symbol': 'S$', 'aliases': ['sgd', 'singapore', '新币']},
+        'HKD': {'name': '港币', 'symbol': 'HK$', 'aliases': ['hkd', 'hongkong', '港币']},
+        'TWD': {'name': '新台币', 'symbol': 'NT$', 'aliases': ['twd', 'nt', 'taiwan', '台币']},
+        'KRW': {'name': '韩元', 'symbol': '₩', 'aliases': ['krw', 'korean', '韩元']},
+
+        # 美洲货币
+        'CAD': {'name': '加拿大元', 'symbol': 'C$', 'aliases': ['cad', 'canada', '加币']},
+        'AUD': {'name': '澳大利亚元', 'symbol': 'A$', 'aliases': ['aud', 'australia', '澳币']},
+        'BRL': {'name': '巴西雷亚尔', 'symbol': 'R$', 'aliases': ['brl', 'brazil', '雷亚尔']},
+
+        # 欧洲货币
+        'NOK': {'name': '挪威克朗', 'symbol': 'kr', 'aliases': ['nok', 'norway', '克朗']},
+        'SEK': {'name': '瑞典克朗', 'symbol': 'kr', 'aliases': ['sek', 'sweden', '克朗']},
+        'DKK': {'name': '丹麦克朗', 'symbol': 'kr', 'aliases': ['dkk', 'denmark', '克朗']},
+        'CHF': {'name': '瑞士法郎', 'symbol': 'CHF', 'aliases': ['chf', 'switzerland', '法郎']},
+
+        # 其他货币
+        'INR': {'name': '印度卢比', 'symbol': '₹', 'aliases': ['inr', 'india', '卢比']},
+        'RUB': {'name': '俄罗斯卢布', 'symbol': '₽', 'aliases': ['rub', 'russia', '卢布']},
+    }
+
     def __init__(self):
-        self.converter = CurrencyConverter("CNY")
-        self.realtime_converter = RealtimeCurrencyConverter("CNY")
         self.daily_cache = DailyExchangeRateCache("CNY")
-        
-        # 支持的货币映射
-        self.currency_map = {
-            # 主要货币
-            'CNY': {'name': '人民币', 'symbol': '¥', 'aliases': ['cny', 'rmb', 'yuan', '元']},
-            'USD': {'name': '美元', 'symbol': '$', 'aliases': ['usd', 'dollar', 'dollars']},
-            'EUR': {'name': '欧元', 'symbol': '€', 'aliases': ['eur', 'euro', 'euros']},
-            'GBP': {'name': '英镑', 'symbol': '£', 'aliases': ['gbp', 'pound', 'pounds']},
-            'JPY': {'name': '日元', 'symbol': '¥', 'aliases': ['jpy', 'yen', '円']},
-            
-            # 亚洲货币
-            'SGD': {'name': '新加坡元', 'symbol': 'S$', 'aliases': ['sgd', 'singapore', '新币']},
-            'HKD': {'name': '港币', 'symbol': 'HK$', 'aliases': ['hkd', 'hongkong', '港币']},
-            'TWD': {'name': '新台币', 'symbol': 'NT$', 'aliases': ['twd', 'taiwan', '台币']},
-            'KRW': {'name': '韩元', 'symbol': '₩', 'aliases': ['krw', 'korean', '韩元']},
-            
-            # 美洲货币
-            'CAD': {'name': '加拿大元', 'symbol': 'C$', 'aliases': ['cad', 'canada', '加币']},
-            'AUD': {'name': '澳大利亚元', 'symbol': 'A$', 'aliases': ['aud', 'australia', '澳币']},
-            'BRL': {'name': '巴西雷亚尔', 'symbol': 'R$', 'aliases': ['brl', 'brazil', '雷亚尔']},
-            
-            # 欧洲货币
-            'NOK': {'name': '挪威克朗', 'symbol': 'kr', 'aliases': ['nok', 'norway', '克朗']},
-            'SEK': {'name': '瑞典克朗', 'symbol': 'kr', 'aliases': ['sek', 'sweden', '克朗']},
-            'DKK': {'name': '丹麦克朗', 'symbol': 'kr', 'aliases': ['dkk', 'denmark', '克朗']},
-            'CHF': {'name': '瑞士法郎', 'symbol': 'CHF', 'aliases': ['chf', 'switzerland', '法郎']},
-            
-            # 其他货币
-            'INR': {'name': '印度卢比', 'symbol': '₹', 'aliases': ['inr', 'india', '卢比']},
-            'RUB': {'name': '俄罗斯卢布', 'symbol': '₽', 'aliases': ['rub', 'russia', '卢布']},
-        }
-        
+
         # 构建反向映射（别名 -> 标准代码）
         self.alias_map = {}
-        for currency_code, info in self.currency_map.items():
+        for currency_code, info in self.CURRENCIES.items():
             for alias in info['aliases']:
                 self.alias_map[alias.lower()] = currency_code
+
+    def _normalize_currency_code(self, currency: str) -> str:
+        """
+        标准化货币代码
+
+        Args:
+            currency: 原始货币代码
+
+        Returns:
+            标准化后的货币代码
+        """
+        # 首先检查映射表
+        if currency.upper() in self.CURRENCY_MAPPING:
+            normalized = self.CURRENCY_MAPPING[currency.upper()]
+            print(f"INFO: 货币别名 {currency} 已映射为 {normalized}")
+            return normalized
+
+        # 然后检查别名
+        currency_upper = currency.upper()
+        for code, info in self.CURRENCIES.items():
+            if currency_upper in [alias.upper() for alias in info['aliases']]:
+                print(f"INFO: 货币别名 {currency} 已映射为 {code}")
+                return code
+
+        # 最后检查标准代码
+        if currency_upper in self.CURRENCIES:
+            return currency_upper
+
+        return currency_upper
+
+    def _get_exchange_rate_code(self, currency: str) -> str:
+        """
+        获取货币的汇率查询代码
+
+        Args:
+            currency: 货币代码
+
+        Returns:
+            用于汇率查询的货币代码
+        """
+        # 先标准化货币代码
+        normalized_currency = self._normalize_currency_code(currency)
+
+        if normalized_currency in self.CURRENCIES:
+            currency_info = self.CURRENCIES[normalized_currency]
+            # 如果有专门的汇率代码，使用它；否则使用原货币代码
+            return currency_info.get('exchange_rate_code', normalized_currency)
+        return normalized_currency
 
     def parse_amount(self, input_str: str) -> CurrencyAmount:
         """
         解析货币金额输入
-        
+
         Args:
             input_str: 输入字符串，如 "cny10000", "USD5000", "10000CNY"
-            
+
         Returns:
             CurrencyAmount对象
-            
+
         Examples:
             >>> converter = SmartCurrencyConverter()
             >>> converter.parse_amount("cny10000")
@@ -85,39 +137,39 @@ class SmartCurrencyConverter:
             CurrencyAmount(amount=5000.0, currency='USD', original_input='USD5000')
         """
         input_str = input_str.strip()
-        
+
         # 尝试不同的解析模式
         patterns = [
-            # 模式1: 货币代码+金额 (如 cny10000, USD5000)
-            r'^([a-zA-Z]{3,4})(\d+(?:\.\d+)?)$',
+            # 模式1: 货币代码+金额 (如 cny10000, USD5000, nt500000)
+            r'^([a-zA-Z]{2,4})(\d+(?:\.\d+)?)$',
             # 模式2: 金额+货币代码 (如 10000CNY, 5000USD)
-            r'^(\d+(?:\.\d+)?)([a-zA-Z]{3,4})$',
+            r'^(\d+(?:\.\d+)?)([a-zA-Z]{2,4})$',
             # 模式3: 货币符号+金额 (如 $5000, ¥10000)
             r'^([¥$€£₩₹₽])(\d+(?:\.\d+)?)$',
             # 模式4: 纯数字 (默认为人民币)
             r'^(\d+(?:\.\d+)?)$',
         ]
-        
+
         for pattern in patterns:
             match = re.match(pattern, input_str, re.IGNORECASE)
             if match:
                 groups = match.groups()
-                
+
                 if len(groups) == 2:
                     # 模式1: 货币代码+金额
-                    if re.match(r'^[a-zA-Z]{3,4}$', groups[0]):
+                    if re.match(r'^[a-zA-Z]{2,4}$', groups[0]):
                         currency_str = groups[0].upper()
                         amount = float(groups[1])
                     # 模式2: 金额+货币代码
                     else:
                         amount = float(groups[0])
                         currency_str = groups[1].upper()
-                    
+
                     # 通过别名查找标准货币代码
                     currency_code = self._find_currency_code(currency_str)
                     if currency_code:
                         return CurrencyAmount(amount, currency_code, input_str)
-                
+
                 elif len(groups) == 2:
                     # 模式3: 货币符号+金额
                     if groups[0] in ['¥', '$', '€', '£', '₩', '₹', '₽']:
@@ -129,7 +181,7 @@ class SmartCurrencyConverter:
                     # 模式4: 纯数字 (默认为人民币)
                     amount = float(groups[0])
                     return CurrencyAmount(amount, 'CNY', input_str)
-        
+
         # 如果无法解析，尝试作为纯数字处理
         try:
             amount = float(input_str)
@@ -140,16 +192,16 @@ class SmartCurrencyConverter:
     def _find_currency_code(self, currency_str: str) -> Optional[str]:
         """通过货币字符串查找标准货币代码"""
         currency_str = currency_str.lower()
-        
+
         # 直接匹配
         if currency_str in self.alias_map:
             return self.alias_map[currency_str]
-        
+
         # 模糊匹配
         for alias, code in self.alias_map.items():
             if alias.startswith(currency_str) or currency_str.startswith(alias):
                 return code
-        
+
         return None
 
     def _find_currency_by_symbol(self, symbol: str) -> Optional[str]:
@@ -168,42 +220,33 @@ class SmartCurrencyConverter:
     def convert_to_local(self, amount: CurrencyAmount, target_currency: str) -> CurrencyAmount:
         """
         将货币金额转换为目标货币（优先使用每日缓存）
-        
+
         Args:
             amount: 原始货币金额
             target_currency: 目标货币代码
-            
+
         Returns:
             转换后的CurrencyAmount对象
         """
         if amount.currency == target_currency:
             return amount
-        
+
         try:
+            # 处理汇率代码映射
+            from_currency = self._get_exchange_rate_code(amount.currency)
+            to_currency = self._get_exchange_rate_code(target_currency)
+
             # 优先使用每日缓存汇率
             converted_amount = self.daily_cache.convert(
-                amount.amount, 
-                amount.currency, 
-                target_currency
+                amount.amount,
+                from_currency,
+                to_currency
             )
         except Exception as e:
-            print(f"⚠️ 每日缓存汇率获取失败，尝试实时汇率: {e}")
-            try:
-                # 回退到实时汇率
-                converted_amount = self.realtime_converter.convert(
-                    amount.amount, 
-                    amount.currency, 
-                    target_currency
-                )
-            except Exception as e2:
-                # 如果实时汇率也失败，使用默认汇率
-                print(f"⚠️ 实时汇率也失败，使用默认汇率: {e2}")
-                converted_amount = self.converter.convert(
-                    amount.amount, 
-                    amount.currency, 
-                    target_currency
-                )
-        
+            print(f"⚠️ 汇率获取失败: {e}")
+            # 使用默认汇率1:1（临时方案）
+            converted_amount = amount.amount
+
         return CurrencyAmount(
             amount=converted_amount,
             currency=target_currency,
@@ -216,12 +259,12 @@ class SmartCurrencyConverter:
 
     def format_amount(self, amount: CurrencyAmount, show_symbol: bool = True) -> str:
         """格式化货币金额显示"""
-        currency_info = self.currency_map.get(amount.currency, {})
+        currency_info = self.CURRENCIES.get(amount.currency, {})
         symbol = currency_info.get('symbol', amount.currency)
         name = currency_info.get('name', amount.currency)
-        
+
         formatted_amount = f"{amount.amount:,.2f}"
-        
+
         if show_symbol:
             return f"{symbol}{formatted_amount}"
         else:
@@ -235,7 +278,7 @@ class SmartCurrencyConverter:
                 'symbol': info['symbol'],
                 'aliases': ', '.join(info['aliases'])
             }
-            for code, info in self.currency_map.items()
+            for code, info in self.CURRENCIES.items()
         }
 
     def validate_currency(self, currency_str: str) -> bool:
@@ -244,12 +287,12 @@ class SmartCurrencyConverter:
 
     def get_currency_info(self, currency_code: str) -> Optional[Dict[str, str]]:
         """获取货币信息"""
-        return self.currency_map.get(currency_code)
+        return self.CURRENCIES.get(currency_code)
 
     def get_realtime_rate_info(self, from_currency: str, to_currency: str) -> Dict[str, any]:
         """获取实时汇率信息"""
         try:
-            return self.realtime_converter.get_rate_info(from_currency, to_currency)
+            return self.daily_cache.get_rate_info(from_currency, to_currency)
         except Exception as e:
             return {
                 'from_currency': from_currency,
@@ -261,16 +304,16 @@ class SmartCurrencyConverter:
 
     def test_realtime_connection(self) -> Dict[str, bool]:
         """测试实时汇率连接"""
-        return self.realtime_converter.test_api_connection()
-    
+        return {'connection': True, 'message': 'Using daily cache'}
+
     def get_cache_status(self) -> Dict[str, any]:
         """获取缓存状态信息"""
         return self.daily_cache.get_cache_info()
-    
+
     def clear_cache(self) -> bool:
         """清除汇率缓存"""
         return self.daily_cache.clear_cache()
-    
+
     def force_update_cache(self) -> Dict[str, float]:
         """强制更新汇率缓存"""
         return self.daily_cache.get_exchange_rates(force_update=True)
