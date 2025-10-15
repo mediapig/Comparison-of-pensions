@@ -6,6 +6,22 @@ numpy-financial>=1.0.0
 decimal
 typing-extensions>=4.0.0
 
+# CLI框架 - 优化命令行体验
+click>=8.0.0
+typer>=0.9.0
+rich>=13.0.0  # 美化输出
+
+# 配置管理 - 优化配置处理
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# 日志管理 - 优化日志系统
+loguru>=0.7.0
+
+# 测试框架 - 完善测试
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
 # 美国税务和社保计算
 taxcalc>=3.4.0
 requests>=2.31.0
@@ -17,9 +33,6 @@ git+https://github.com/HJEGeorge/tax_calculator.git#egg=uk-tax-calculator
 # OpenFisca 核心和通用
 openfisca-core>=41.0.0
 openfisca-country-template
-
-# 尝试安装可用的国家包 (可能需要单独处理)
-# openfisca-france (示例，不直接用但可参考)
 
 # 美国社保计算 (从GitHub安装)
 git+https://github.com/MikePiper/open-social-security.git

@@ -49,10 +49,11 @@ class JapanPlugin(BaseCountryPlugin):
     def calculate_tax(self,
                      annual_income: float,
                      deductions: Optional[Dict[str, float]] = None,
+                     social_security_contribution: float = 0,
                      **kwargs) -> Dict[str, float]:
         """计算个人所得税"""
         # 使用修正计算器获得更准确的结果
-        tax_result = self.corrected_calculator.calculate_tax_detailed(annual_income)
+        tax_result = self.corrected_calculator.calculate_tax_detailed(annual_income, social_security_contribution)
         return {
             'total_tax': tax_result.get('total_tax', 0),
             'taxable_income': tax_result.get('taxable_income', 0),

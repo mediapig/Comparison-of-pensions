@@ -10,6 +10,10 @@ from datetime import date
 from core.models import Person, SalaryProfile, EconomicFactors, Gender, EmploymentType
 # 延迟导入以避免循环导入
 from utils.smart_currency_converter import SmartCurrencyConverter, CurrencyAmount
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+from utils.irr_calculator import IRRCalculator
 
 class JapanDetailedAnalyzer:
     """日本详细分析器"""
@@ -66,6 +70,9 @@ class JapanDetailedAnalyzer:
         # 3. 全生命周期总结
         lifetime_summary = self._analyze_lifetime_summary(japan_plugin, person, salary_profile, economic_factors)
 
+        # 计算工作年限
+        work_years = 65 - person.age
+
         return {
             "国家": "日本",
             "国家代码": "JP",
@@ -74,7 +81,7 @@ class JapanDetailedAnalyzer:
             "第一年分析": income_analysis,
             "工作期总计": lifetime_summary,
             "退休期分析": pension_analysis,
-            "投资回报分析": self._analyze_roi(pension_analysis, lifetime_summary),
+            "投资回报分析": self._analyze_roi(pension_analysis, lifetime_summary, work_years),
             "人民币对比": self._convert_to_cny(pension_analysis, lifetime_summary)
         }
 
@@ -118,17 +125,23 @@ class JapanDetailedAnalyzer:
         social_security_details = detailed_tax_result.get('social_security', {})
 
         # 计算个税（包含工资所得控除和基础控除）
-        tax_result = plugin.calculate_tax(annual_income)
+        social_security_contribution = ss_result.get('monthly_employee', 0) * 12  # 年金+健保+雇保合计
+        tax_result = plugin.calculate_tax(annual_income, social_security_contribution=social_security_contribution)
 
         # 计算实际到手（扣除个税和社保）
         net_income = annual_income - tax_result.get('total_tax', 0) - ss_result.get('monthly_employee', 0) * 12
+
+        # 判断是否触顶：厚生年金或健康保险任一触顶即为true
+        kosei_capped = monthly_salary >= 650_000  # 厚生年金上限
+        kenko_capped = monthly_salary >= 1_390_000  # 健康保险上限
+        is_capped = kosei_capped or kenko_capped
 
         return {
             "年龄": person.age,
             "收入情况": {
                 "年收入": annual_income,
                 "社保缴费基数": monthly_salary,
-                "年薪上限限制": False
+                "年薪上限限制": is_capped
             },
             "社保缴费": {
                 "厚生年金": {
@@ -160,11 +173,13 @@ class JapanDetailedAnalyzer:
             },
             "税务情况": {
                 "应税收入": tax_result.get('taxable_income', 0),
-                "所得税": tax_result.get('total_tax', 0),
+                "国税_所得税(含2.1%复兴税)": tax_result.get('income_tax', 0),
+                "地方税_住民税": tax_result.get('resident_tax', 0),
+                "总税额": tax_result.get('total_tax', 0),
                 "扣除明细": {
                     "工资所得控除": tax_result.get('breakdown', {}).get('salary_deduction', 0),
                     "基础控除": tax_result.get('breakdown', {}).get('basic_deduction', 0),
-                    "厚生年金扣除": tax_result.get('breakdown', {}).get('pension_deduction', 0),
+                    "社会保险料控除": ss_result.get('monthly_employee', 0) * 12,  # 年金+健保+雇保合计
                     "总扣除额": tax_result.get('total_deductions', 0)
                 },
                 "实际到手收入": net_income
@@ -183,7 +198,8 @@ class JapanDetailedAnalyzer:
         ss_result = plugin.calculate_social_security(monthly_salary, work_years)
 
         # 计算个税
-        tax_result = plugin.calculate_tax(annual_income)
+        social_security_contribution = ss_result.get('monthly_employee', 0) * 12  # 年金+健保+雇保合计
+        tax_result = plugin.calculate_tax(annual_income, social_security_contribution=social_security_contribution)
 
         # 计算总收入
         total_income = annual_income * work_years
@@ -207,7 +223,7 @@ class JapanDetailedAnalyzer:
         }
 
     def _analyze_roi(self, pension_analysis: Dict[str, Any],
-                    lifetime_summary: Dict[str, Any]) -> Dict[str, Any]:
+                    lifetime_summary: Dict[str, Any], work_years: int) -> Dict[str, Any]:
         """分析投资回报（只考虑个人现金流）"""
         pension_result = pension_analysis["退休金收入"]
         # 只使用雇员缴费，不包含雇主缴费
@@ -222,12 +238,32 @@ class JapanDetailedAnalyzer:
         break_even_years = employee_ss_total / (monthly_pension * 12) if monthly_pension > 0 else 0
         break_even_age = 65 + break_even_years
 
+        # 计算正确的IRR：构建逐年现金流
+        cash_flows = []
+
+        # 计算年度雇员缴费
+        employee_ss_annual = employee_ss_total / work_years if work_years > 0 else 0
+
+        # 工作期现金流（负值：缴费）
+        for year in range(work_years):
+            cash_flows.append(-employee_ss_annual)
+
+        # 退休期现金流（正值：领取）
+        for year in range(25):  # 65-90岁，25年
+            cash_flows.append(monthly_pension * 12)
+
+        # 计算IRR
+        try:
+            irr = IRRCalculator.calculate_irr(cash_flows)
+        except:
+            irr = 0.0  # 如果计算失败，设为0
+
         return {
             "说明": "IRR和回本分析只考虑个人现金流（雇员缴费），不包含雇主缴费",
             "个人投入": employee_ss_total,
             "个人产出": total_benefit,
             "简单回报率": simple_roi,
-            "内部收益率_IRR": 0.06,  # 假设6%
+            "内部收益率_IRR": irr,
             "回本分析": {
                 "回本年龄": break_even_age,
                 "回本时间": break_even_years,

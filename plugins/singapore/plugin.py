@@ -10,7 +10,6 @@ from datetime import date
 from core.base_plugin import BaseCountryPlugin, PluginConfig
 from core.models import Person, SalaryProfile, EconomicFactors, PensionResult, Gender, EmploymentType
 from .cpf_calculator import SingaporeCPFCalculator
-from .cpf_payout_calculator import SingaporeCPFPayoutCalculator
 from .singapore_tax_calculator_enhanced import SingaporeTaxCalculatorEnhanced
 from .singapore_detailed_analyzer import SingaporeDetailedAnalyzer
 
@@ -24,7 +23,6 @@ class SingaporePlugin(BaseCountryPlugin):
     def __init__(self):
         super().__init__()
         self.cpf_calculator = SingaporeCPFCalculator()
-        self.cpf_payout_calculator = SingaporeCPFPayoutCalculator()
         self.tax_calculator_enhanced = SingaporeTaxCalculatorEnhanced()
         self.detailed_analyzer = SingaporeDetailedAnalyzer()
 
@@ -77,17 +75,9 @@ class SingaporePlugin(BaseCountryPlugin):
         total_ra_balance = ra_balance + sa_balance
 
         if total_ra_balance > 0:
-            payout_result = self.cpf_payout_calculator.calculate_cpf_life_payout(
-                ra_balance=total_ra_balance,
-                sa_balance=0,
-                annual_nominal_rate=0.035,  # 3.5%年利率
-                annual_inflation_rate=0.02,  # 2%通胀率
-                payout_years=25,  # 25年领取期（65-90岁）
-                scheme="level"  # 固定金额领取
-            )
-
-            monthly_pension = payout_result.monthly_payment
-            total_benefit = payout_result.total_payments
+            # 使用简化的CPF LIFE计算
+            monthly_pension = total_ra_balance * 0.053 / 12  # 5.3%年化率
+            total_benefit = monthly_pension * 12 * 25  # 25年领取期
         else:
             monthly_pension = 0
             total_benefit = 0

@@ -12,6 +12,7 @@ from core.models import Person, SalaryProfile, EconomicFactors, PensionResult
 from .config import TaiwanConfig
 from .tax_calculator import TaiwanTaxCalculator
 from .pension_calculator import TaiwanPensionCalculator
+from .taiwan_detailed_analyzer import TaiwanDetailedAnalyzer
 
 class TaiwanPlugin(BaseCountryPlugin):
     """台湾插件"""
@@ -24,6 +25,7 @@ class TaiwanPlugin(BaseCountryPlugin):
         super().__init__()
         self.tax_calculator = TaiwanTaxCalculator()
         self.pension_calculator = TaiwanPensionCalculator()
+        self.detailed_analyzer = TaiwanDetailedAnalyzer()
 
     def _load_config(self) -> PluginConfig:
         """加载配置"""
@@ -94,3 +96,12 @@ class TaiwanPlugin(BaseCountryPlugin):
             "employer": 0.07,        # 雇主缴费7%
             "total": 0.09            # 总缴费比例9%
         }
+
+    def print_detailed_analysis(self, person: Person, salary_profile: SalaryProfile,
+                              economic_factors: EconomicFactors, pension_result,
+                              currency_amount):
+        """打印详细分析结果"""
+        # 调用详细分析器
+        self.detailed_analyzer.print_detailed_analysis(
+            self, person, salary_profile, economic_factors, pension_result, currency_amount
+        )

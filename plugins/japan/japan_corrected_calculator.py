@@ -224,7 +224,7 @@ class JapanCorrectedCalculator:
             details=comprehensive_result["details"]
         )
 
-    def calculate_tax_detailed(self, annual_income: float) -> Dict[str, Any]:
+    def calculate_tax_detailed(self, annual_income: float, social_security_contribution: float = 0) -> Dict[str, Any]:
         """详细计算税收（修正版）"""
         monthly_salary = annual_income / 12
 
@@ -233,6 +233,10 @@ class JapanCorrectedCalculator:
         annual_ss_employee = (social_security['kosei']['employee'] +
                             social_security['kenko']['employee'] +
                             social_security['koyo']['employee']) * 12
+
+        # 使用传入的社会保险料参数，如果没有则使用计算值
+        if social_security_contribution > 0:
+            annual_ss_employee = social_security_contribution
 
         # 计算税收
         salary_deduction = calc_salary_deduction(annual_income)
