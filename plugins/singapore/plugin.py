@@ -193,6 +193,10 @@ class SingaporePlugin(BaseCountryPlugin):
             monthly_salary, age, age + years
         )
 
+        # 防止除零错误
+        if years <= 0:
+            years = 35  # 默认35年工作期
+
         return {
             'monthly_employee': lifetime_result['total_employee'] / (12 * years),
             'monthly_employer': lifetime_result['total_employer'] / (12 * years),

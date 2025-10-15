@@ -280,7 +280,7 @@ class SmartPensionComparisonApp:
                 pension_result = plugin.calculate_pension(person, salary_profile, economic_factors)
 
                 # 计算税收
-                annual_income = local_amount.amount * 12
+                annual_income = local_amount.amount  # local_amount.amount 已经是年收入
                 tax_result = plugin.calculate_tax(annual_income)
 
                 # 计算社保
@@ -331,23 +331,7 @@ class SmartPensionComparisonApp:
 
             print(f"{flag}{plugin.COUNTRY_NAME:<8} {self.smart_converter.format_amount(monthly_pension_cny):<15} {self.smart_converter.format_amount(total_contribution_cny):<15} {pension_result.roi:>6.1f}% {retirement_age:>6}岁")
 
-        print("\n💰 税收对比 (人民币):")
-        print(f"{'国家':<10} {'年个税':<15} {'有效税率':<10}")
-        print("-" * 40)
-
-        for country_code, data in results.items():
-            plugin = data['plugin']
-            tax_result = data['tax']
-            flag = self.get_country_flag(country_code)
-
-            # 转换为人民币显示
-            total_tax_cny = self.smart_converter.convert_to_local(
-                CurrencyAmount(tax_result.get('total_tax', 0), plugin.CURRENCY, ""),
-                'CNY'
-            )
-            effective_rate = tax_result.get('effective_rate', 0)
-
-            print(f"{flag}{plugin.COUNTRY_NAME:<8} {self.smart_converter.format_amount(total_tax_cny):<15} {effective_rate:>8.1f}%")
+        # 只显示退休金对比，不显示税收对比
 
     def analyze_annual_detail(self, country_code: str, currency_amount: CurrencyAmount,
                              start_age: int = 30, retirement_age: Optional[int] = None):
