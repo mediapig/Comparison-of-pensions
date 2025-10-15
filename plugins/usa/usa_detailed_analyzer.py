@@ -93,33 +93,33 @@ class USADetailedAnalyzer:
                 "年龄": start_age,
                 "收入情况": {
                     "年收入": annual_salary_usd,
-                    "社保缴费基数": min(annual_salary_usd, 160200),
-                    "年薪上限限制": annual_salary_usd > 160200
+                    "社保缴费基数": min(annual_salary_usd, 168600),
+                    "年薪上限限制": annual_salary_usd > 168600
                 },
                 "社保缴费": {
                     "雇员费率": 6.2,
                     "雇主费率": 6.2,
                     "总费率": 12.4,
-                    "年缴费金额": min(annual_salary_usd, 160200) * 0.124,
-                    "雇员缴费": min(annual_salary_usd, 160200) * 0.062,
-                    "雇主缴费": min(annual_salary_usd, 160200) * 0.062
+                    "年缴费金额": min(annual_salary_usd, 168600) * 0.124,
+                    "雇员缴费": min(annual_salary_usd, 168600) * 0.062,
+                    "雇主缴费": min(annual_salary_usd, 168600) * 0.062
                 },
                 "Medicare缴费": {
                     "雇员费率": 1.45,
                     "雇主费率": 1.45,
                     "总费率": 2.9,
-                    "年缴费金额": annual_salary_usd * 0.029,
-                    "雇员缴费": annual_salary_usd * 0.0145,
+                    "年缴费金额": annual_salary_usd * 0.029 + max(0, annual_salary_usd - 200000) * 0.009,
+                    "雇员缴费": annual_salary_usd * 0.0145 + max(0, annual_salary_usd - 200000) * 0.009,
                     "雇主缴费": annual_salary_usd * 0.0145
                 },
                 "401k缴费": {
                     "缴费基数": annual_salary_usd,
-                    "员工缴费": min(annual_salary_usd * 0.10, 23500),
-                    "雇主匹配": self._calculate_employer_match(annual_salary_usd),
-                    "总缴费": min(annual_salary_usd * 0.10, 23500) + self._calculate_employer_match(annual_salary_usd)
+                    "员工缴费": self._calculate_employee_401k_contribution(annual_salary_usd, start_age),
+                    "雇主匹配": self._calculate_employer_match(annual_salary_usd, start_age),
+                    "总缴费": self._calculate_employee_401k_contribution(annual_salary_usd, start_age) + self._calculate_employer_match(annual_salary_usd, start_age)
                 },
                 "税务情况": {
-                    "应税收入": self._calculate_taxable_income(annual_salary_usd),
+                    "应税收入": self._calculate_taxable_income(annual_salary_usd, start_age, 2024),
                     "所得税": self._calculate_federal_tax(annual_salary_usd),
                     "实际到手收入": self._calculate_net_income(annual_salary_usd)
                 }
@@ -186,12 +186,14 @@ class USADetailedAnalyzer:
             }
         }
 
-    def _calculate_taxable_income(self, annual_salary: float) -> float:
+    def _calculate_taxable_income(self, annual_salary: float, age: int = 30, year: int = 2024) -> float:
         """计算应税收入"""
         # 401k缴费（税前）
-        k401_contribution = min(annual_salary * 0.10, 23500)
-        # 标准扣除额（2024年）
-        standard_deduction = 14600
+        k401_contribution = self._calculate_employee_401k_contribution(annual_salary, age, year)
+        # 标准扣除额（按年表）
+        from .config import USAConfig
+        config = USAConfig()
+        standard_deduction = config.standard_deduction_by_year.get(year, 14600)
         return max(0, annual_salary - k401_contribution - standard_deduction)
 
     def _calculate_federal_tax(self, annual_salary: float) -> float:
@@ -241,9 +243,25 @@ class USADetailedAnalyzer:
         ss_contribution_base = min(annual_salary, 160200)
         return ss_contribution_base * 0.062 * work_years
 
-    def _calculate_employer_match(self, annual_salary: float) -> float:
+    def _calculate_employee_401k_contribution(self, annual_salary: float, age: int, year: int = 2024) -> float:
+        """计算员工401k缴费（考虑年龄和年度限额）"""
+        # 从配置获取年度限额
+        from .config import USAConfig
+        config = USAConfig()
+
+        if age >= 50:
+            deferral_limit = config.employee_deferral_limit_by_year.get(year, {"over_50": 30500})["over_50"]
+        else:
+            deferral_limit = config.employee_deferral_limit_by_year.get(year, {"under_50": 23000})["under_50"]
+
+        # 假设员工缴费10%，但不超过年度限额
+        employee_contribution = min(annual_salary * 0.10, deferral_limit)
+
+        return employee_contribution
+
+    def _calculate_employer_match(self, annual_salary: float, age: int = 30) -> float:
         """计算雇主匹配（使用tiered_3_2规则：100%匹配前3% + 50%匹配接下2%）"""
-        employee_contribution = min(annual_salary * 0.10, 23500)
+        employee_contribution = self._calculate_employee_401k_contribution(annual_salary, age)
 
         # 分层匹配规则
         # 第一层：100%匹配前3%
