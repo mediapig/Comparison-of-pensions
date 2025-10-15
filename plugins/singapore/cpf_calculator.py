@@ -95,9 +95,17 @@ class SingaporeCPFCalculator:
             employer_contrib = base * SingaporeCPFConstants.EMPLOYER_RATE
             total_contrib = employee_contrib + employer_contrib
 
+            # 检查CPF年度总额上限
+            if total_contrib > SingaporeCPFConstants.CPF_ANNUAL_LIMIT:
+                # 如果超过年度上限，按比例调整
+                scale_factor = SingaporeCPFConstants.CPF_ANNUAL_LIMIT / total_contrib
+                employee_contrib *= scale_factor
+                employer_contrib *= scale_factor
+                total_contrib = SingaporeCPFConstants.CPF_ANNUAL_LIMIT
+
             employee_contrib_total += employee_contrib
 
-            # 按比例分配 OA, SA, MA (≤55岁: 62%/16%/22%)
+            # 按比例分配 OA, SA, MA (≤35岁: 23%/6%/8%)
             add_OA = total_contrib * SingaporeCPFConstants.OA_ALLOCATION_RATE
             add_SA = total_contrib * SingaporeCPFConstants.SA_ALLOCATION_RATE
             add_MA = total_contrib * SingaporeCPFConstants.MA_ALLOCATION_RATE
@@ -186,8 +194,11 @@ class SingaporeCPFCalculator:
                 OA_remaining *= (1 + SingaporeCPFConstants.OA_INTEREST_RATE)
                 MA *= (1 + SingaporeCPFConstants.MA_INTEREST_RATE)
 
-                # 检查MA是否因利息超过BHS上限
-                bhs_limit = get_cohort_bhs_at_65(2024, start_age)
+                # 检查MA是否因利息超过BHS上限（逐年计算BHS限制）
+                year_at_55_plus_i = 2024 + (55 - start_age) + i
+                years_from_2024 = year_at_55_plus_i - 2024
+                bhs_limit = SingaporeCPFConstants.BHS_2024 * ((1 + SingaporeCPFConstants.ANNUAL_GROWTH_RATE) ** years_from_2024)
+                
                 if MA > bhs_limit + 1e-9:
                     extra = MA - bhs_limit
                     MA = bhs_limit
