@@ -23,6 +23,14 @@ class CurrencyAmount:
 class SmartCurrencyConverter:
     """智能货币转换器"""
 
+    # 货币代码标准化映射表
+    CURRENCY_MAPPING = {
+        'NT': 'TWD',
+        'NTD': 'TWD',
+        'RMB': 'CNY',
+        'CNH': 'CNY'
+    }
+
     # 支持的货币映射
     CURRENCIES = {
         # 主要货币
@@ -35,7 +43,7 @@ class SmartCurrencyConverter:
         # 亚洲货币
         'SGD': {'name': '新加坡元', 'symbol': 'S$', 'aliases': ['sgd', 'singapore', '新币']},
         'HKD': {'name': '港币', 'symbol': 'HK$', 'aliases': ['hkd', 'hongkong', '港币']},
-            'TWD': {'name': '新台币', 'symbol': 'NT$', 'aliases': ['twd', 'nt', 'taiwan', '台币']},
+        'TWD': {'name': '新台币', 'symbol': 'NT$', 'aliases': ['twd', 'nt', 'taiwan', '台币']},
         'KRW': {'name': '韩元', 'symbol': '₩', 'aliases': ['krw', 'korean', '韩元']},
 
         # 美洲货币
@@ -63,6 +71,35 @@ class SmartCurrencyConverter:
             for alias in info['aliases']:
                 self.alias_map[alias.lower()] = currency_code
 
+    def _normalize_currency_code(self, currency: str) -> str:
+        """
+        标准化货币代码
+
+        Args:
+            currency: 原始货币代码
+
+        Returns:
+            标准化后的货币代码
+        """
+        # 首先检查映射表
+        if currency.upper() in self.CURRENCY_MAPPING:
+            normalized = self.CURRENCY_MAPPING[currency.upper()]
+            print(f"INFO: 货币别名 {currency} 已映射为 {normalized}")
+            return normalized
+
+        # 然后检查别名
+        currency_upper = currency.upper()
+        for code, info in self.CURRENCIES.items():
+            if currency_upper in [alias.upper() for alias in info['aliases']]:
+                print(f"INFO: 货币别名 {currency} 已映射为 {code}")
+                return code
+
+        # 最后检查标准代码
+        if currency_upper in self.CURRENCIES:
+            return currency_upper
+
+        return currency_upper
+
     def _get_exchange_rate_code(self, currency: str) -> str:
         """
         获取货币的汇率查询代码
@@ -73,11 +110,14 @@ class SmartCurrencyConverter:
         Returns:
             用于汇率查询的货币代码
         """
-        if currency in self.CURRENCIES:
-            currency_info = self.CURRENCIES[currency]
+        # 先标准化货币代码
+        normalized_currency = self._normalize_currency_code(currency)
+
+        if normalized_currency in self.CURRENCIES:
+            currency_info = self.CURRENCIES[normalized_currency]
             # 如果有专门的汇率代码，使用它；否则使用原货币代码
-            return currency_info.get('exchange_rate_code', currency)
-        return currency
+            return currency_info.get('exchange_rate_code', normalized_currency)
+        return normalized_currency
 
     def parse_amount(self, input_str: str) -> CurrencyAmount:
         """
