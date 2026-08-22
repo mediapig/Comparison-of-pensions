@@ -217,12 +217,10 @@ function calculateRaBalanceSimplified(annualSalary: number, startAge: number, re
 
 function calculateTerminalValueSimplified(annualSalary: number, startAge: number, retirementAge: number, terminalAge: number): number {
   let OA = 0
-  let SA = 0
   let MA = 0
   for (let age = startAge; age < retirementAge; age++) {
     const base = Math.min(annualSalary, IRR_OW_CEILING)
     OA += base * 0.23
-    SA += base * 0.06
     MA += base * 0.08
   }
 
